@@ -1,0 +1,489 @@
+<div class="page-container animate-fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Gestion des Clients</h1>
+      <p class="page-subtitle">Annuaire, comptes d'accès portail, autorisations et facturations</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openAddModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Nouveau Client
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="summary-cards">
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Total Clients</div>
+      <div class="amount text-primary font-bold">{{ stats.totalClients }}</div>
+    </div>
+    <div class="summary-card stat-success">
+      <div class="title font-semibold text-secondary">Clients Actifs</div>
+      <div class="amount text-success font-bold">{{ stats.activeClients }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Entreprises</div>
+      <div class="amount text-indigo font-bold">{{ stats.entreprises }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Particuliers</div>
+      <div class="amount text-purple font-bold">{{ stats.personnes }}</div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar premium-card mb-4">
+    <div class="search-wrapper">
+      <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" placeholder="Rechercher par nom, code, email, téléphone..." class="table-search"
+        [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+    </div>
+    <div class="filters-select">
+      <select class="table-filter" [(ngModel)]="selectedType" (ngModelChange)="applyFilters()">
+        <option value="">Tous les types</option>
+        <option *ngFor="let t of types" [value]="t">{{ typeLabels[t] }}</option>
+      </select>
+
+      <select class="table-filter" [(ngModel)]="selectedStatut" (ngModelChange)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        <option *ngFor="let s of statuts" [value]="s">{{ statutLabels[s] }}</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container premium-card mt-4" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Chargement des clients...</span>
+    </div>
+  </div>
+
+  <!-- Error Alert -->
+  <div class="alert-banner alert-error mt-4" *ngIf="errorMsg && !isLoading">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    {{ errorMsg }}
+    <button class="retry-btn" (click)="refreshData()">Réessayer</button>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state premium-card" *ngIf="!isLoading && !errorMsg && filteredClients.length === 0">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" class="text-muted">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857" />
+    </svg>
+    <p>Aucun client ne correspond aux critères de recherche.</p>
+  </div>
+
+  <!-- Clients List Table -->
+  <div class="table-container premium-card mt-4 p-0" *ngIf="!isLoading && !errorMsg && filteredClients.length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>Code client</th>
+          <th>Nom / Raison Sociale</th>
+          <th>Contact</th>
+          <th>Compte d'accès</th>
+          <th>Type</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let client of filteredClients">
+          <td><span class="font-mono text-semibold">{{ client.codeClient }}</span></td>
+          <td>
+            <div class="titulaire-cell">
+              <div class="auth-avatar">{{ getInitials(client) }}</div>
+              <div>
+                <div class="entity-name">{{ client.nom }} {{ client.prenom ?? '' }}</div>
+                <div class="entity-sub font-mono">{{ client.matricule || client.numeroFiscal || 'Pas d\'identifiant fiscal' }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div>
+              <div class="text-sm font-semibold">{{ client.email }}</div>
+              <div class="text-xs text-muted">{{ client.telephone }}</div>
+            </div>
+          </td>
+          <td>
+            <!-- User account status & Quick action button -->
+            <div *ngIf="client.userId">
+              <span class="status-badge badge-active font-mono text-xs">
+                🔑 User #{{ client.userId }}
+              </span>
+            </div>
+            <div *ngIf="!client.userId">
+              <button class="btn-xs-account" (click)="openCreateAccountModal(client)" title="Créer un compte d'accès Espace Client">
+                + Créer Compte
+              </button>
+            </div>
+          </td>
+          <td>
+            <span class="type-pill" [ngClass]="typeBadgeClass[client.type || 'ENTREPRISE']">
+              {{ typeLabels[client.type || 'ENTREPRISE'] }}
+            </span>
+          </td>
+          <td>
+            <span class="status-badge" [ngClass]="statutBadgeClass[client.statut || 'ACTIF']">
+              {{ statutLabels[client.statut || 'ACTIF'] }}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons-flex">
+              <button class="link-btn" (click)="openDetailsModal(client)">Gérer</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════ Modal: Nouveau Client ══════════ -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    
+    <div class="modal-header">
+      <h2>Enregistrer un nouveau client</h2>
+      <button class="modal-close" (click)="closeAddModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Alert banners -->
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="onAddSubmit(); $event.preventDefault()">
+      <div class="form-section-title">Type & Statuts</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type de Client *</label>
+          <select [(ngModel)]="newClient.type" name="type">
+            <option *ngFor="let t of types" [value]="t">{{ typeLabels[t] }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Statut initial *</label>
+          <select [(ngModel)]="newClient.statut" name="statut">
+            <option *ngFor="let s of statuts" [value]="s">{{ statutLabels[s] }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section-title">Coordonnées principales</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom ou Raison Sociale *</label>
+          <input type="text" [(ngModel)]="newClient.nom" name="nom" placeholder="Ex: SOTETEL ou Dupont">
+        </div>
+        <div class="form-group">
+          <label>Prénom (facultatif si entreprise)</label>
+          <input type="text" [(ngModel)]="newClient.prenom" name="prenom" placeholder="Ex: Jean">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Adresse e-mail *</label>
+          <input type="email" [(ngModel)]="newClient.email" name="email" (change)="onNewClientEmailChange()" placeholder="client@exemple.tn">
+        </div>
+        <div class="form-group">
+          <label>Téléphone *</label>
+          <input type="text" [(ngModel)]="newClient.telephone" name="telephone" placeholder="+216 XX XXX XXX">
+        </div>
+      </div>
+
+      <!-- Option Création Compte Utilisateur -->
+      <div class="account-creation-box my-3">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="createAccountForNewClient" name="createAccount" (change)="onNewClientEmailChange()">
+          <span>Créer immédiatement un <strong>Compte Utilisateur d'accès au Portail Client (Espace Client)</strong></span>
+        </label>
+
+        <div class="account-fields-sub mt-2" *ngIf="createAccountForNewClient">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nom d'utilisateur (Username) *</label>
+              <input type="text" [(ngModel)]="accountUsername" name="accUsername" placeholder="Ex: clt_sotetel">
+            </div>
+            <div class="form-group">
+              <label>Mot de passe initial *</label>
+              <input type="password" [(ngModel)]="accountPassword" name="accPassword" placeholder="Mot de passe sécurisé">
+            </div>
+          </div>
+          <p class="text-xs text-indigo m-0">Le client pourra se connecter à l'application et accéder directement à son Espace Client.</p>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Adresse physique</label>
+        <input type="text" [(ngModel)]="newClient.adresse" name="adresse" placeholder="Adresse complète">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ville</label>
+          <input type="text" [(ngModel)]="newClient.ville" name="ville" placeholder="Tunis">
+        </div>
+        <div class="form-group">
+          <label>Code Postal</label>
+          <input type="text" [(ngModel)]="newClient.codePostal" name="codePostal" placeholder="1002">
+        </div>
+        <div class="form-group">
+          <label>Pays</label>
+          <input type="text" [(ngModel)]="newClient.pays" name="pays" placeholder="Tunisie">
+        </div>
+      </div>
+
+      <div class="form-section-title">Données Fiscales & Métier</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Matricule Fiscal / Identifiant</label>
+          <input type="text" [(ngModel)]="newClient.numeroFiscal" name="numeroFiscal" placeholder="Ex: 1234567/A/M/000">
+        </div>
+        <div class="form-group">
+          <label>Registre de commerce / Matricule</label>
+          <input type="text" [(ngModel)]="newClient.matricule" name="matricule" placeholder="Ex: B151822026">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Secteur d'Activité</label>
+          <input type="text" [(ngModel)]="newClient.secteurActivite" name="secteurActivite" placeholder="Ex: Télécommunications, Transport">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Notes complémentaires</label>
+        <textarea rows="2" [(ngModel)]="newClient.notes" name="notes" placeholder="Observations..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="closeAddModal()" [disabled]="isSubmitting">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+          <span *ngIf="isSubmitting" class="spin mr-1">⚡</span>
+          <span>{{ isSubmitting ? 'Création...' : 'Créer le client' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ Modal: Créer un Compte pour un Client Existant ══════════ -->
+<div class="modal-overlay" *ngIf="showCreateAccountModal && targetClientForAccount" (click)="closeCreateAccountModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    
+    <div class="modal-header">
+      <h2>Créer un compte d'accès Portail pour le client existant</h2>
+      <button class="modal-close" (click)="closeCreateAccountModal()" [disabled]="isCreatingAccount">✕</button>
+    </div>
+
+    <!-- Alert banners -->
+    <div class="alert-banner alert-error" *ngIf="accountSubmitError">{{ accountSubmitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="accountSubmitSuccess">{{ accountSubmitSuccess }}</div>
+
+    <form class="modal-form" (submit)="submitCreateAccountForExistingClient(); $event.preventDefault()">
+      
+      <div class="target-client-info-card">
+        <div class="titulaire-cell">
+          <div class="auth-avatar">{{ getInitials(targetClientForAccount) }}</div>
+          <div>
+            <div class="entity-name text-indigo font-bold">{{ targetClientForAccount.nom }} {{ targetClientForAccount.prenom ?? '' }}</div>
+            <div class="entity-sub font-mono">{{ targetClientForAccount.codeClient }} • {{ targetClientForAccount.email }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section-title mt-3">Identifiants d'accès au système</div>
+
+      <div class="form-group">
+        <label>Nom d'utilisateur (Username) *</label>
+        <input type="text" [(ngModel)]="existingAccountUsername" name="exUsername" placeholder="ex: clt_sotetel">
+      </div>
+
+      <div class="form-group">
+        <label>Adresse e-mail du compte *</label>
+        <input type="email" [(ngModel)]="existingAccountEmail" name="exEmail">
+      </div>
+
+      <div class="form-group">
+        <label>Mot de passe initial *</label>
+        <input type="text" [(ngModel)]="existingAccountPassword" name="exPassword" placeholder="Saisir le mot de passe">
+        <p class="text-xs text-muted mt-1">Fournissez ce mot de passe au client pour sa première connexion.</p>
+      </div>
+
+      <div class="info-note-box">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18" class="text-indigo">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Une fois créé, ce compte permettra au client d'accéder à son <strong>Espace Client</strong> pour consulter l'état de ses autorisations et ses factures.</span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="closeCreateAccountModal()" [disabled]="isCreatingAccount">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="isCreatingAccount">
+          <span *ngIf="isCreatingAccount" class="spin mr-1">⚡</span>
+          <span>{{ isCreatingAccount ? 'Création du compte...' : 'Créer & Lier le Compte' }}</span>
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+
+<!-- ══════════ Modal: Détails & Édition Client ══════════ -->
+<div class="modal-overlay" *ngIf="showDetailsModal && selectedClient" (click)="closeDetailsModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    
+    <div class="modal-header">
+      <div>
+        <h2>Fiche Client: <span class="font-mono text-indigo">{{ selectedClient.codeClient }}</span></h2>
+        <p class="text-xs text-muted">Créé le {{ selectedClient.createdAt | date: 'dd MMMM yyyy' }} • Mis à jour le {{ selectedClient.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+      </div>
+      <button class="modal-close" (click)="closeDetailsModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Alert banners -->
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="onUpdateSubmit(); $event.preventDefault()">
+      
+      <!-- Account quick action box inside details -->
+      <div class="account-link-banner">
+        <div *ngIf="selectedClient.userId">
+          <span class="text-sm font-semibold text-success">✓ Compte Utilisateur d'accès au Portail configuré (ID User: #{{ selectedClient.userId }})</span>
+        </div>
+        <div *ngIf="!selectedClient.userId" class="flex-between">
+          <span class="text-sm text-secondary">Ce client n'a pas encore de compte d'accès à l'Espace Client.</span>
+          <button type="button" class="btn-xs-account" (click)="openCreateAccountModal(selectedClient)">
+            + Créer un compte pour ce client
+          </button>
+        </div>
+      </div>
+
+      <!-- Status quick buttons -->
+      <div class="status-editor-row mt-3">
+        <label>Statut d'activité :</label>
+        <div class="status-quick-buttons">
+          <button type="button" class="q-btn btn-active" 
+            [class.active]="selectedClient.statut === 'ACTIF'"
+            (click)="changeStatut(selectedClient, 'ACTIF')">ACTIF</button>
+          <button type="button" class="q-btn btn-suspended" 
+            [class.active]="selectedClient.statut === 'INACTIF'"
+            (click)="changeStatut(selectedClient, 'INACTIF')">INACTIF</button>
+        </div>
+      </div>
+
+      <div class="form-section-title">Informations Principales</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type de Client *</label>
+          <select [(ngModel)]="selectedClient.type" name="type">
+            <option *ngFor="let t of types" [value]="t">{{ typeLabels[t] }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom ou Raison Sociale *</label>
+          <input type="text" [(ngModel)]="selectedClient.nom" name="nom">
+        </div>
+        <div class="form-group">
+          <label>Prénom</label>
+          <input type="text" [(ngModel)]="selectedClient.prenom" name="prenom">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" [(ngModel)]="selectedClient.email" name="email">
+        </div>
+        <div class="form-group">
+          <label>N° Téléphone *</label>
+          <input type="text" [(ngModel)]="selectedClient.telephone" name="telephone">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Adresse physique</label>
+        <input type="text" [(ngModel)]="selectedClient.adresse" name="adresse">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ville</label>
+          <input type="text" [(ngModel)]="selectedClient.ville" name="ville">
+        </div>
+        <div class="form-group">
+          <label>Code Postal</label>
+          <input type="text" [(ngModel)]="selectedClient.codePostal" name="codePostal">
+        </div>
+        <div class="form-group">
+          <label>Pays</label>
+          <input type="text" [(ngModel)]="selectedClient.pays" name="pays">
+        </div>
+      </div>
+
+      <div class="form-section-title">Coordonnées Fiscales</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Numéro Fiscal</label>
+          <input type="text" [(ngModel)]="selectedClient.numeroFiscal" name="numeroFiscal">
+        </div>
+        <div class="form-group">
+          <label>Matricule Commercial</label>
+          <input type="text" [(ngModel)]="selectedClient.matricule" name="matricule">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Secteur d'Activité</label>
+          <input type="text" [(ngModel)]="selectedClient.secteurActivite" name="secteurActivite">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Notes complémentaires (Observations)</label>
+        <textarea rows="2" [(ngModel)]="selectedClient.notes" name="notes"></textarea>
+      </div>
+
+      <div class="modal-actions-space">
+        <button type="button" class="btn btn-danger-outline" (click)="onDelete(selectedClient)" [disabled]="isSubmitting">
+          Supprimer la fiche client
+        </button>
+
+        <div class="right-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeDetailsModal()" [disabled]="isSubmitting">
+            Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+            <span>{{ isSubmitting ? 'Enregistrement...' : 'Enregistrer' }}</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

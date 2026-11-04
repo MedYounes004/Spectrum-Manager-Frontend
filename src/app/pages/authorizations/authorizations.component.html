@@ -1,0 +1,1174 @@
+<div class="page-container animate-fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Gestion des Autorisations</h1>
+      <p class="page-subtitle">Nouvelles demandes et suivi des licences d'exploitation du spectre radioélectrique</p>
+    </div>
+    <div class="header-actions">
+      <!-- Views toggler -->
+      <div class="toggle-group mr-3">
+        <button class="toggle-btn" [class.active]="viewMode === 'kanban'" (click)="viewMode = 'kanban'">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          Kanban
+        </button>
+        <button class="toggle-btn" [class.active]="viewMode === 'table'" (click)="viewMode = 'table'">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          Liste
+        </button>
+      </div>
+
+      <button class="btn btn-primary" (click)="openAddModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Saisir une demande
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="summary-cards">
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Total Dossiers</div>
+      <div class="amount text-primary font-bold">{{ stats.total }}</div>
+    </div>
+    <div class="summary-card stat-success">
+      <div class="title font-semibold text-secondary">Licences Actives</div>
+      <div class="amount text-success font-bold">{{ stats.actives }}</div>
+    </div>
+    <div class="summary-card stat-warning">
+      <div class="title font-semibold text-secondary">En Attente d'Étude</div>
+      <div class="amount text-warning font-bold">{{ stats.en_attente }}</div>
+    </div>
+    <div class="summary-card stat-danger">
+      <div class="title font-semibold text-secondary">Licences Expirées / Suspendues</div>
+      <div class="amount text-danger font-bold">{{ (stats.expirees || 0) + (stats.suspendues || 0) }}</div>
+    </div>
+  </div>
+
+  <!-- Filter Bar (Filtres: Recherche, Fréquence, Zone, Client, Service, Statut) -->
+  <div class="filter-bar premium-card mb-4">
+    <!-- Recherche globale -->
+    <div class="search-wrapper">
+      <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" placeholder="Recherche (titulaire, n°, indicatif...)" class="table-search"
+        [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+      <button *ngIf="searchTerm" class="clear-input-btn" (click)="searchTerm = ''; applyFilters()">✕</button>
+    </div>
+
+    <!-- Filtre spécifique par Fréquence -->
+    <div class="search-wrapper freq-search-wrapper">
+      <svg class="search-icon text-indigo" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      <input type="text" placeholder="Fréquence (ex: 900, 108.5, 800-900)..." class="table-search"
+        [(ngModel)]="selectedFrequence" (ngModelChange)="applyFilters()">
+      <button *ngIf="selectedFrequence" class="clear-input-btn" (click)="selectedFrequence = ''; applyFilters()">✕</button>
+    </div>
+
+    <!-- Filtre spécifique par Zone -->
+    <div class="search-wrapper zone-search-wrapper">
+      <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+      <input type="text" placeholder="Filtrer par zone..." class="table-search" [(ngModel)]="selectedZone"
+        (ngModelChange)="applyFilters()">
+      <button *ngIf="selectedZone" class="clear-input-btn" (click)="selectedZone = ''; applyFilters()">✕</button>
+    </div>
+
+    <div class="filters-select">
+      <!-- Filtre par Client -->
+      <select class="table-filter" [(ngModel)]="selectedClientId" (ngModelChange)="applyFilters()">
+        <option value="">Tous les clients</option>
+        <option *ngFor="let c of clients" [value]="c.id">
+          {{ c.nom }} {{ c.prenom }}
+        </option>
+      </select>
+
+      <!-- Filtre par Service -->
+      <select class="table-filter" [(ngModel)]="selectedService" (ngModelChange)="applyFilters()">
+        <option value="">Tous les services</option>
+        <option *ngFor="let s of services" [value]="s">{{ serviceLabels[s] }}</option>
+      </select>
+
+      <!-- Filtre par Statut -->
+      <select class="table-filter" [(ngModel)]="selectedStatut" (ngModelChange)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        <option *ngFor="let st of statuts" [value]="st">{{ statutLabels[st] }}</option>
+      </select>
+
+      <!-- Bouton Réinitialiser -->
+      <button *ngIf="hasActiveFilters()" class="btn-reset-filters" (click)="resetFilters()" title="Effacer tous les filtres">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="14" height="14">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        Effacer
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container premium-card mt-4" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Chargement des autorisations...</span>
+    </div>
+  </div>
+
+  <!-- Error Alert -->
+  <div class="alert-banner alert-error mt-4" *ngIf="errorMsg && !isLoading">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    {{ errorMsg }}
+    <button class="retry-btn" (click)="refreshData()">Réessayer</button>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state premium-card" *ngIf="!isLoading && !errorMsg && filteredAuthorizations.length === 0">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" class="text-muted">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    <p>Aucune autorisation ne correspond aux critères de recherche.</p>
+  </div>
+
+  <!-- Vue Kanban Board -->
+  <div class="kanban-board"
+    *ngIf="!isLoading && !errorMsg && viewMode === 'kanban' && filteredAuthorizations.length > 0">
+
+    <!-- Column 1: EN_ATTENTE -->
+    <div class="kanban-col">
+      <div class="kanban-header">
+        <span class="badge border-yellow color-yellow">En Attente</span>
+        <span class="count">{{ getKanbanList('pending').length }}</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="kanban-card premium-card" *ngFor="let auth of getKanbanList('pending')"
+          (click)="openDetailsModal(auth)">
+          <div class="card-tag">{{ serviceLabels[auth.service || auth.type] }}</div>
+          <h4>{{ getClientName(auth) }}</h4>
+          <p class="text-sm font-mono truncate">{{ auth.numeroAutorisation }}</p>
+          <div class="card-details-excerpt">
+            <div *ngIf="getAuthFrequenceDisplay(auth)" class="excerpt-item freq-highlight">
+              ⚡ Fréq: {{ getAuthFrequenceDisplay(auth) }}
+            </div>
+            <div *ngIf="getAuthZone(auth)" class="excerpt-item zone-highlight">
+              📍 Zone: {{ getAuthZone(auth) }}
+            </div>
+            <div *ngIf="getServiceSpecificSummary(auth)" class="excerpt-item">
+              {{ getServiceSpecificSummary(auth) }}
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="date">Déb: {{ auth.dateDebut }}</span>
+            <div class="avatars">{{ getClientInitials(auth) }}</div>
+          </div>
+        </div>
+        <div class="kanban-empty" *ngIf="getKanbanList('pending').length === 0">
+          Aucun dossier en attente
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 2: ACTIVE -->
+    <div class="kanban-col">
+      <div class="kanban-header">
+        <span class="badge border-blue color-blue">Licences Actives</span>
+        <span class="count">{{ getKanbanList('active').length }}</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="kanban-card premium-card" *ngFor="let auth of getKanbanList('active')"
+          (click)="openDetailsModal(auth)">
+          <div class="card-tag-status" [ngClass]="statutBadgeClass[auth.statut]">
+            {{ statutLabels[auth.statut] }}
+          </div>
+          <div class="card-tag">{{ serviceLabels[auth.service || auth.type] }}</div>
+          <h4>{{ getClientName(auth) }}</h4>
+          <p class="text-sm font-mono truncate">{{ auth.numeroAutorisation }}</p>
+          <div class="card-details-excerpt">
+            <div *ngIf="getAuthFrequenceDisplay(auth)" class="excerpt-item freq-highlight">
+              ⚡ Fréq: {{ getAuthFrequenceDisplay(auth) }}
+            </div>
+            <div *ngIf="getAuthZone(auth)" class="excerpt-item zone-highlight">
+              📍 Zone: {{ getAuthZone(auth) }}
+            </div>
+            <div *ngIf="getServiceSpecificSummary(auth)" class="excerpt-item">
+              {{ getServiceSpecificSummary(auth) }}
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="date">Fin: {{ auth.dateFin || 'Indéterminée' }}</span>
+            <div class="avatars">{{ getClientInitials(auth) }}</div>
+          </div>
+        </div>
+        <div class="kanban-empty" *ngIf="getKanbanList('active').length === 0">
+          Aucune licence active
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 3: SUSPENDED / EXPIRED -->
+    <div class="kanban-col">
+      <div class="kanban-header">
+        <span class="badge border-red color-red">Suspendues / Expirées</span>
+        <span class="count">{{ getKanbanList('archived').length }}</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="kanban-card premium-card" *ngFor="let auth of getKanbanList('archived')"
+          (click)="openDetailsModal(auth)">
+          <div class="card-tag-status" [ngClass]="statutBadgeClass[auth.statut]">
+            {{ statutLabels[auth.statut] }}
+          </div>
+          <div class="card-tag bg-gray">{{ serviceLabels[auth.service || auth.type] }}</div>
+          <h4>{{ getClientName(auth) }}</h4>
+          <p class="text-sm font-mono truncate">{{ auth.numeroAutorisation }}</p>
+          <div class="card-details-excerpt">
+            <div *ngIf="getAuthFrequenceDisplay(auth)" class="excerpt-item freq-highlight">
+              ⚡ Fréq: {{ getAuthFrequenceDisplay(auth) }}
+            </div>
+            <div *ngIf="getAuthZone(auth)" class="excerpt-item zone-highlight">
+              📍 Zone: {{ getAuthZone(auth) }}
+            </div>
+            <div *ngIf="getServiceSpecificSummary(auth)" class="excerpt-item">
+              {{ getServiceSpecificSummary(auth) }}
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="date">Fin: {{ auth.dateFin || 'Indéterminée' }}</span>
+            <div class="avatars">{{ getClientInitials(auth) }}</div>
+          </div>
+        </div>
+        <div class="kanban-empty" *ngIf="getKanbanList('archived').length === 0">
+          Aucun dossier historique
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Vue Tableau des Autorisations -->
+  <div class="table-container premium-card mt-4 p-0"
+    *ngIf="!isLoading && !errorMsg && viewMode === 'table' && filteredAuthorizations.length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>N° Autorisation</th>
+          <th>Titulaire (Client)</th>
+          <th>Service</th>
+          <th>Fréquence</th>
+          <th>Zone</th>
+          <th>Période d'activité</th>
+          <th>Détails techniques</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let auth of filteredAuthorizations">
+          <td><span class="font-mono text-semibold">{{ auth.numeroAutorisation }}</span></td>
+          <td>
+            <div class="titulaire-cell">
+              <div class="auth-avatar">{{ getClientInitials(auth) }}</div>
+              <div>
+                <div class="entity-name">{{ getClientName(auth) }}</div>
+                <div class="entity-sub" *ngIf="auth.client">{{ auth.client.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="type-pill" [ngClass]="serviceBadgeClass[auth.service || auth.type]">{{
+              serviceLabels[auth.service || auth.type] }}</span>
+          </td>
+          <td>
+            <span class="freq-pill" *ngIf="getAuthFrequenceDisplay(auth)">⚡ {{ getAuthFrequenceDisplay(auth) }}</span>
+            <span class="text-muted text-sm" *ngIf="!getAuthFrequenceDisplay(auth)">—</span>
+          </td>
+          <td>
+            <span class="zone-pill" *ngIf="getAuthZone(auth)">📍 {{ getAuthZone(auth) }}</span>
+            <span class="text-muted text-sm" *ngIf="!getAuthZone(auth)">—</span>
+          </td>
+          <td>
+            <div class="date-range">
+              <span>{{ auth.dateDebut }}</span>
+              <span class="date-arrow">→</span>
+              <span>{{ auth.dateFin || 'Indéterminée' }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="text-sm">{{ getServiceSpecificSummary(auth) || '—' }}</span>
+          </td>
+          <td>
+            <span class="status-badge" [ngClass]="statutBadgeClass[auth.statut]">{{ statutLabels[auth.statut] }}</span>
+          </td>
+          <td>
+            <button class="link-btn" (click)="openDetailsModal(auth)">Gérer</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════ Modal Formulaire de saisie en 2 étapes ══════════ -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <div>
+        <h2>Saisie d'une demande d'autorisation</h2>
+        <p class="text-xs text-muted">Création d'un dossier d'autorisation de fréquences</p>
+      </div>
+      <button class="modal-close" (click)="closeAddModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Stepper Progress Header -->
+    <div class="stepper-container">
+      <div class="step-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1"
+        (click)="goToStep1()">
+        <div class="step-number">1</div>
+        <div class="step-text">Étape 1 : Informations Administratives</div>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" [class.active]="currentStep === 2">
+        <div class="step-number">2</div>
+        <div class="step-text">Étape 2 : Informations Techniques</div>
+      </div>
+    </div>
+
+    <!-- Alert Banners -->
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="$event.preventDefault()">
+
+      <!-- ═════ ÉTAPE 1 : INFORMATIONS ADMINISTRATIVES ═════ -->
+      <ng-container *ngIf="currentStep === 1">
+        <div class="form-section-title">Informations du Titulaire</div>
+        <div class="form-group">
+          <label>Client titulaire *</label>
+          <select [(ngModel)]="newAuth.clientId" name="clientId">
+            <option [value]="0">-- Sélectionner un client --</option>
+            <option *ngFor="let c of clients" [value]="c.id">
+              {{ c.nom }} {{ c.prenom }} ({{ c.codeClient || ('ID: ' + c.id) }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-section-title">Service & Statut</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Service radioélectrique *</label>
+            <select [(ngModel)]="newAuth.service" name="service">
+              <option *ngFor="let s of services" [value]="s">{{ serviceLabels[s] }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut de l'autorisation *</label>
+            <select [(ngModel)]="newAuth.statut" name="statut">
+              <option *ngFor="let st of statuts" [value]="st">{{ statutLabels[st] }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date de début *</label>
+            <input type="date" [(ngModel)]="newAuth.dateDebut" name="dateDebut">
+          </div>
+          <div class="form-group">
+            <label>Date de fin (facultatif)</label>
+            <input type="date" [(ngModel)]="newAuth.dateFin" name="dateFin">
+          </div>
+        </div>
+
+        <div class="form-section-title">Informations sur les équipements (optionnel)</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type d'équipement</label>
+            <input type="text" [(ngModel)]="newAuth.typeEquipement" name="typeEquipement"
+              placeholder="Émetteur / Récepteur">
+          </div>
+          <div class="form-group">
+            <label>Marque</label>
+            <input type="text" [(ngModel)]="newAuth.marqueEquipement" name="marqueEquipement"
+              placeholder="Ex: Motorola, Ericsson">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Modèle</label>
+            <input type="text" [(ngModel)]="newAuth.modeleEquipement" name="modeleEquipement" placeholder="Ex: TX-5000">
+          </div>
+          <div class="form-group">
+            <label>Nombre d'appareils</label>
+            <input type="number" [(ngModel)]="newAuth.nombreAppareils" name="nombreAppareils" placeholder="Ex: 10">
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeAddModal()">Annuler</button>
+          <button type="button" class="btn btn-primary" (click)="goToStep2()">
+            Suivant (Étape 2 : Spécifications techniques) →
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- ═════ ÉTAPE 2 : INFORMATIONS TECHNIQUES (DYNAMIQUE SELON LE SERVICE) ═════ -->
+      <ng-container *ngIf="currentStep === 2">
+        <div class="tech-service-logo-header">
+          <img [src]="serviceLogos[newAuth.service]" alt="Service Logo" class="service-logo-img">
+          <span>Champs techniques spécifiques pour le service : <strong>{{ serviceLabels[newAuth.service]
+              }}</strong></span>
+        </div>
+
+        <!-- SERVICE FIXE -->
+        <ng-container *ngIf="newAuth.service === 'FIXE'">
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence émission [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceEmission" name="frequenceEmission"></div>
+            <div class="form-group"><label>Fréquence réception [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceReception" name="frequenceReception"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Largeur de canal [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.largeurCanalFixe" name="largeurCanalFixe"></div>
+            <div class="form-group">
+              <label>Diversité</label>
+              <select [(ngModel)]="newAuth.diversite" name="diversite">
+                <option value="">-- Sélectionner la diversité --</option>
+                <option value="1+0">1+0</option>
+                <option value="1+1">1+1</option>
+                <option value="2+0">2+0</option>
+                <option value="2+1">2+1</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Coordonnée GPS Émetteur</label><input type="text"
+                [(ngModel)]="newAuth.coordonneesGPSEmetteur" name="coordonneesGPSEmetteur"
+                placeholder="Ex: 36.8065, 10.1815"></div>
+            <div class="form-group"><label>Coordonnée GPS Récepteur</label><input type="text"
+                [(ngModel)]="newAuth.coordonneesGPSRecepteur" name="coordonneesGPSRecepteur"
+                placeholder="Ex: 36.8020, 10.1700"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Zone de service</label><input type="text"
+                [(ngModel)]="newAuth.zoneServiceFixe" name="zoneServiceFixe" placeholder="Ex: Tunis - Ariana"></div>
+            <div class="form-group"><label>Arrangement de canaux (ITU)</label><input type="text"
+                [(ngModel)]="newAuth.arrangementCanaux" name="arrangementCanaux" placeholder="Ex: Rec. ITU-R F.387">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Diamètre antenne [m]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.diametreAntenneFixe" name="diametreAntenneFixe"></div>
+            <div class="form-group"><label>Type de modulation</label><input type="text"
+                [(ngModel)]="newAuth.typeModulation" name="typeModulation" placeholder="QAM-256, QPSK..."></div>
+          </div>
+        </ng-container>
+
+        <!-- SERVICE MOBILE TERRESTRE -->
+        <ng-container *ngIf="newAuth.service === 'MOBILE_TERRESTRE'">
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence centrale [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceCentrale" name="frequenceCentrale"></div>
+            <div class="form-group"><label>Largeur de canal [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.largeurCanal" name="largeurCanal"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Puissance rayonnée [W]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.puissanceRayonnee" name="puissanceRayonnee"></div>
+            <div class="form-group"><label>Gain antenne [dBi]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.gainAntenne" name="gainAntenne"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Type d'antenne</label><input type="text" [(ngModel)]="newAuth.typeAntenne"
+                name="typeAntenne" placeholder="Ex: Directive, Omnidirectionnelle"></div>
+            <div class="form-group"><label>Marque d'antenne</label><input type="text"
+                [(ngModel)]="newAuth.marqueAntenne" name="marqueAntenne" placeholder="Ex: Kathrein"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Technologie</label>
+              <select [(ngModel)]="newAuth.technologie" name="technologie">
+                <option value="">-- Sélectionner la technologie --</option>
+                <option value="2G">2G</option>
+                <option value="3G">3G</option>
+                <option value="4G">4G</option>
+                <option value="5G">5G</option>
+                <option value="6G">6G</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Nombre d'émetteurs</label><input type="number"
+                [(ngModel)]="newAuth.nombreEmetteurs" name="nombreEmetteurs"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Position GPS du site</label><input type="text"
+                [(ngModel)]="newAuth.positionGPS" name="positionGPS" placeholder="Ex: 36.8065, 10.1815"></div>
+            <div class="form-group"><label>Hauteur antenne / sol [m]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.hauteurAntenneSol" name="hauteurAntenneSol"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Zone de service</label><input type="text" [(ngModel)]="newAuth.zoneService"
+                name="zoneService" placeholder="Ex: Grand Tunis, National"></div>
+            <div class="form-group">
+              <label>Diagramme d'antenne</label>
+              <input type="file" (change)="onFileChange($event, 'new')" class="form-control-file">
+              <small class="text-xs text-muted" *ngIf="newAuth.diagrammeAntenne"
+                style="display: block; margin-top: 4px;">Fichier sélectionné : {{ newAuth.diagrammeAntenne }}</small>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- SERVICE RADIODIFFUSION -->
+        <ng-container *ngIf="newAuth.service === 'RADIODIFFUSION'">
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceRadio" name="frequenceRadio"></div>
+            <div class="form-group"><label>Fréquence Image [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceImage" name="frequenceImage"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Puissance rayonnée [W]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.puissanceRadio" name="puissanceRadio"></div>
+            <div class="form-group"><label>Bande de fréquences</label><input type="text"
+                [(ngModel)]="newAuth.bandeFrequences" name="bandeFrequences" placeholder="Ex: FM, VHF, UHF"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="newAuth.typeAntenneRadio" name="typeAntenneRadio" placeholder="Ex: Dipode, Yagi"></div>
+            <div class="form-group"><label>Marque d'antenne</label><input type="text"
+                [(ngModel)]="newAuth.marqueAntenneRadio" name="marqueAntenneRadio" placeholder="Ex: Sira"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Norme de diffusion</label>
+              <select [(ngModel)]="newAuth.normeDiffusion" name="normeDiffusion">
+                <option value="">-- Sélectionner la norme --</option>
+                <option value="DVB-T">DVB-T</option>
+                <option value="DVB-T2">DVB-T2</option>
+                <option value="FM">FM</option>
+                <option value="AM">AM</option>
+                <option value="DAB">DAB</option>
+                <option value="DRM">DRM</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Largeur de canal [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.largeurCanalRadio" name="largeurCanalRadio"></div>
+          </div>
+          <div class="form-group"><label>Localisation ou zone de service</label><input type="text"
+              [(ngModel)]="newAuth.localisationZone" name="localisationZone"
+              placeholder="Ex: Mont Zaghouan, Tunis Nord"></div>
+        </ng-container>
+
+        <!-- SERVICE MARITIME -->
+        <ng-container *ngIf="newAuth.service === 'MARITIME'">
+          <div class="form-row">
+            <div class="form-group"><label>Type de navire</label><input type="text" [(ngModel)]="newAuth.typeNavire"
+                name="typeNavire" placeholder="Cargo, Pêche, Plaisance"></div>
+            <div class="form-group"><label>Numéro MMSI</label><input type="text" [(ngModel)]="newAuth.numMMSI"
+                name="numMMSI"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Indicatif d'appel</label><input type="text"
+                [(ngModel)]="newAuth.indicatifAppel" name="indicatifAppel"></div>
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceMaritime" name="frequenceMaritime"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Puissance [W]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.puissanceMaritime" name="puissanceMaritime"></div>
+            <div class="form-group"><label>Zone de navigation</label><input type="text"
+                [(ngModel)]="newAuth.zoneNavigation" name="zoneNavigation" placeholder="Ex: Côtière, A2, A3"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Équipement radio</label><input type="text"
+                [(ngModel)]="newAuth.equipementRadio" name="equipementRadio"
+                placeholder="Ex: VHF, SMSSM, Emetteur-récepteur"></div>
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="newAuth.typeAntenneMaritime" name="typeAntenneMaritime" placeholder="Ex: Fouet vertical">
+            </div>
+          </div>
+          <div class="form-group"><label>Position GPS</label><input type="text"
+              [(ngModel)]="newAuth.positionGPSMaritime" name="positionGPSMaritime" placeholder="Ex: 34.7405, 10.7603">
+          </div>
+        </ng-container>
+
+        <!-- SERVICE AÉRONAUTIQUE -->
+        <ng-container *ngIf="newAuth.service === 'MOBILE_AERONAUTIQUE'">
+          <div class="form-row">
+            <div class="form-group"><label>Type d'aéronef</label><input type="text" [(ngModel)]="newAuth.typeAeronef"
+                name="typeAeronef" placeholder="Boeing 737, Hélicoptère..."></div>
+            <div class="form-group"><label>Immatriculation</label><input type="text"
+                [(ngModel)]="newAuth.immatriculation" name="immatriculation"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceAero" name="frequenceAero"></div>
+            <div class="form-group"><label>Puissance [W]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.puissanceAero" name="puissanceAero"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mode de communication</label><input type="text"
+                [(ngModel)]="newAuth.modeCommunication" name="modeCommunication" placeholder="Ex: AM (VHF), FM, Data">
+            </div>
+            <div class="form-group"><label>Zone d'opération</label><input type="text"
+                [(ngModel)]="newAuth.zoneOperation" name="zoneOperation" placeholder="Ex: Espace aérien tunisien, GAT">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="newAuth.typeAntenneAero" name="typeAntenneAero" placeholder="Ex: Lame VHF"></div>
+            <div class="form-group"><label>Position GPS</label><input type="text" [(ngModel)]="newAuth.positionGPSAero"
+                name="positionGPSAero" placeholder="Ex: 36.8510, 10.2272"></div>
+          </div>
+        </ng-container>
+
+        <!-- SERVICE AMATEUR -->
+        <ng-container *ngIf="newAuth.service === 'AMATEUR'">
+          <div class="form-row">
+            <div class="form-group"><label>Classe amateur</label><input type="text" [(ngModel)]="newAuth.classeAmateur"
+                name="classeAmateur" placeholder="Ex: A, B, C"></div>
+            <div class="form-group"><label>Indicatif d'appel</label><input type="text" [(ngModel)]="newAuth.indicatif"
+                name="indicatif"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.frequenceAmateur" name="frequenceAmateur"></div>
+            <div class="form-group"><label>Puissance [W]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.puissanceAmateur" name="puissanceAmateur"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mode d'émission</label><input type="text" [(ngModel)]="newAuth.modeEmission"
+                name="modeEmission" placeholder="Ex: CW, SSB, FM, Digital"></div>
+            <div class="form-group"><label>Type d'antenne</label><input type="text" [(ngModel)]="newAuth.antenneType"
+                name="antenneType" placeholder="Ex: Yagi, Dipole"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Marque d'antenne</label><input type="text"
+                [(ngModel)]="newAuth.marqueAntenneAmateur" name="marqueAntenneAmateur"></div>
+            <div class="form-group"><label>Gain antenne [dBi]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.gainAntenneAmateur" name="gainAntenneAmateur"></div>
+          </div>
+          <div class="form-group"><label>Position GPS</label><input type="text" [(ngModel)]="newAuth.positionGPSAmateur"
+              name="positionGPSAmateur" placeholder="Ex: 36.7215, 10.2014"></div>
+        </ng-container>
+
+        <!-- SERVICE SATELLITE -->
+        <ng-container *ngIf="newAuth.service === 'SATELLITE'">
+          <div class="form-row">
+            <div class="form-group"><label>Nom du satellite</label><input type="text" [(ngModel)]="newAuth.nomSatellite"
+                name="nomSatellite" placeholder="Ex: Nilesat 201, Eutelsat"></div>
+            <div class="form-group">
+              <label>Type de satellite</label>
+              <select [(ngModel)]="newAuth.typeSatellite" name="typeSatellite">
+                <option value="">-- Sélectionner le type --</option>
+                <option value="GEO">GEO</option>
+                <option value="Non-GEO">Non-GEO</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Position orbitale</label><input type="text"
+                [(ngModel)]="newAuth.positionOrbitale" name="positionOrbitale" placeholder="Ex: 7.0° W"></div>
+            <div class="form-group"><label>Type de station</label><input type="text" [(ngModel)]="newAuth.typeStation"
+                name="typeStation" placeholder="Ex: Station terrienne fixe VSAT"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Position GPS de la station</label><input type="text"
+                [(ngModel)]="newAuth.positionGPSStation" name="positionGPSStation" placeholder="Ex: 36.8065, 10.1815">
+            </div>
+            <div class="form-group"><label>Débit [Mbit/s]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.debit" name="debit"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Modulation</label><input type="text" [(ngModel)]="newAuth.modulation"
+                name="modulation" placeholder="Ex: QPSK, OQPSK"></div>
+            <div class="form-group"><label>Gain antenne [dBi]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.gainAntenneSatellite" name="gainAntenneSatellite"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Diamètre antenne [m]</label><input type="number" step="any"
+                [(ngModel)]="newAuth.diametreAntenneSat" name="diametreAntenneSat"></div>
+            <div class="form-group"><label>Bande de fréquences</label><input type="text"
+                [(ngModel)]="newAuth.bandeFreqSat" name="bandeFreqSat" placeholder="Ex: Ku, Ka, C"></div>
+          </div>
+        </ng-container>
+
+        <div class="form-group">
+          <label>Conditions d'exploitation & de sécurité</label>
+          <textarea rows="2" [(ngModel)]="newAuth.conditions" name="conditions"
+            placeholder="Conditions particulières..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Observations complémentaires</label>
+          <textarea rows="2" [(ngModel)]="newAuth.observations" name="observations"
+            placeholder="Remarques et détails techniques libres..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" (click)="goToStep1()">← Précédent (Étape 1)</button>
+          <button type="button" class="btn btn-primary" (click)="onAddSubmit()" [disabled]="isSubmitting">
+            <svg *ngIf="isSubmitting" class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16"
+              height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581" />
+            </svg>
+            <span>{{ isSubmitting ? 'Enregistrement...' : 'Créer l\'autorisation' }}</span>
+          </button>
+        </div>
+      </ng-container>
+
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ Modal: Consultation & Édition d'autorisation ══════════ -->
+<div class="modal-overlay" *ngIf="showDetailsModal && selectedAuth" (click)="closeDetailsModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <div>
+        <h2>Autorisation: <span class="font-mono text-indigo">{{ selectedAuth.numeroAutorisation || ('ID: ' +
+            selectedAuth.id) }}</span></h2>
+        <p class="text-xs text-muted">Créé le {{ selectedAuth.createdAt | date: 'dd/MM/yyyy HH:mm' }} • Mis à jour le {{
+          selectedAuth.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+      </div>
+      <button class="modal-close" (click)="closeDetailsModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Quick Status Changer Bar -->
+    <div class="status-editor-row">
+      <label>Modifier le statut rapidement :</label>
+      <div class="status-quick-buttons">
+        <button type="button" class="q-btn btn-pending" [class.active]="selectedAuth.statut === 'EN_ATTENTE'"
+          (click)="changeStatut(selectedAuth, 'EN_ATTENTE')">En attente</button>
+        <button type="button" class="q-btn btn-active" [class.active]="selectedAuth.statut === 'ACTIVE'"
+          (click)="changeStatut(selectedAuth, 'ACTIVE')">Activer</button>
+        <button type="button" class="q-btn btn-suspended" [class.active]="selectedAuth.statut === 'SUSPENDUE'"
+          (click)="changeStatut(selectedAuth, 'SUSPENDUE')">Suspendre</button>
+        <button type="button" class="q-btn" [class.active]="selectedAuth.statut === 'EXPIREE'"
+          (click)="changeStatut(selectedAuth, 'EXPIREE')">Expirée</button>
+      </div>
+    </div>
+
+    <!-- Details Stepper Navigation -->
+    <div class="stepper-container mb-3">
+      <div class="step-item" [class.active]="detailStep === 1" (click)="detailStep = 1">
+        <div class="step-number">1</div>
+        <div class="step-text">Informations Administratives</div>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" [class.active]="detailStep === 2" (click)="detailStep = 2">
+        <div class="step-number">2</div>
+        <div class="step-text">Spécifications Techniques</div>
+      </div>
+    </div>
+
+    <!-- Alert banners -->
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="onUpdateSubmit(); $event.preventDefault()">
+
+      <!-- DETAILS TAB 1 -->
+      <ng-container *ngIf="detailStep === 1">
+        <div class="form-section-title">Client Titulaire</div>
+        <div class="form-group">
+          <label>Client associé *</label>
+          <select [(ngModel)]="selectedAuth.clientId" name="clientId">
+            <option *ngFor="let c of clients" [value]="c.id">
+              {{ c.nom }} {{ c.prenom }} ({{ c.codeClient || ('ID: ' + c.id) }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-section-title">Service & Dates</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Service radioélectrique *</label>
+            <select [(ngModel)]="selectedAuth.service" name="service">
+              <option *ngFor="let s of services" [value]="s">{{ serviceLabels[s] }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut général *</label>
+            <select [(ngModel)]="selectedAuth.statut" name="statut">
+              <option *ngFor="let st of statuts" [value]="st">{{ statutLabels[st] }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date de début *</label>
+            <input type="date" [(ngModel)]="selectedAuth.dateDebut" name="dateDebut">
+          </div>
+          <div class="form-group">
+            <label>Date de fin</label>
+            <input type="date" [(ngModel)]="selectedAuth.dateFin" name="dateFin">
+          </div>
+        </div>
+
+        <div class="form-section-title">Équipements communs</div>
+        <div class="form-row">
+          <div class="form-group"><label>Type d'équipement</label><input type="text"
+              [(ngModel)]="selectedAuth.typeEquipement" name="typeEquipement"></div>
+          <div class="form-group"><label>Marque</label><input type="text" [(ngModel)]="selectedAuth.marqueEquipement"
+              name="marqueEquipement"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Modèle</label><input type="text" [(ngModel)]="selectedAuth.modeleEquipement"
+              name="modeleEquipement"></div>
+          <div class="form-group"><label>Nombre d'appareils</label><input type="number"
+              [(ngModel)]="selectedAuth.nombreAppareils" name="nombreAppareils"></div>
+        </div>
+      </ng-container>
+
+      <!-- DETAILS TAB 2 -->
+      <ng-container *ngIf="detailStep === 2">
+        <div class="tech-service-logo-header">
+          <img [src]="serviceLogos[selectedAuth.service]" alt="Service Logo" class="service-logo-img">
+          <span>Paramètres techniques enregistrés pour le service : <strong>{{ serviceLabels[selectedAuth.service]
+              }}</strong></span>
+        </div>
+
+        <!-- SERVICE FIXE -->
+        <ng-container *ngIf="selectedAuth.service === 'FIXE'">
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence émission [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceEmission" name="frequenceEmission"></div>
+            <div class="form-group"><label>Fréquence réception [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceReception" name="frequenceReception"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Largeur de canal [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.largeurCanalFixe" name="largeurCanalFixe"></div>
+            <div class="form-group">
+              <label>Diversité</label>
+              <select [(ngModel)]="selectedAuth.diversite" name="diversite">
+                <option value="">-- Sélectionner la diversité --</option>
+                <option value="1+0">1+0</option>
+                <option value="1+1">1+1</option>
+                <option value="2+0">2+0</option>
+                <option value="2+1">2+1</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Coordonnée GPS Émetteur</label><input type="text"
+                [(ngModel)]="selectedAuth.coordonneesGPSEmetteur" name="coordonneesGPSEmetteur"
+                placeholder="Ex: 36.8065, 10.1815"></div>
+            <div class="form-group"><label>Coordonnée GPS Récepteur</label><input type="text"
+                [(ngModel)]="selectedAuth.coordonneesGPSRecepteur" name="coordonneesGPSRecepteur"
+                placeholder="Ex: 36.8020, 10.1700"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Zone de service</label><input type="text"
+                [(ngModel)]="selectedAuth.zoneServiceFixe" name="zoneServiceFixe" placeholder="Ex: Tunis - Ariana">
+            </div>
+            <div class="form-group"><label>Arrangement de canaux (ITU)</label><input type="text"
+                [(ngModel)]="selectedAuth.arrangementCanaux" name="arrangementCanaux"
+                placeholder="Ex: Rec. ITU-R F.387"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Diamètre antenne [m]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.diametreAntenneFixe" name="diametreAntenneFixe"></div>
+            <div class="form-group"><label>Type de modulation</label><input type="text"
+                [(ngModel)]="selectedAuth.typeModulation" name="typeModulation" placeholder="QAM-256, QPSK..."></div>
+          </div>
+        </ng-container>
+
+        <!-- SERVICE MOBILE TERRESTRE -->
+        <ng-container *ngIf="selectedAuth.service === 'MOBILE_TERRESTRE'">
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence centrale [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceCentrale" name="frequenceCentrale"></div>
+            <div class="form-group"><label>Largeur de canal [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.largeurCanal" name="largeurCanal"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Puissance rayonnée [W]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.puissanceRayonnee" name="puissanceRayonnee"></div>
+            <div class="form-group"><label>Gain antenne [dBi]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.gainAntenne" name="gainAntenne"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.typeAntenne" name="typeAntenne"
+                placeholder="Ex: Directive, Omnidirectionnelle"></div>
+            <div class="form-group"><label>Marque d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.marqueAntenne" name="marqueAntenne" placeholder="Ex: Kathrein"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Technologie</label>
+              <select [(ngModel)]="selectedAuth.technologie" name="technologie">
+                <option value="">-- Sélectionner la technologie --</option>
+                <option value="2G">2G</option>
+                <option value="3G">3G</option>
+                <option value="4G">4G</option>
+                <option value="5G">5G</option>
+                <option value="6G">6G</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Nombre d'émetteurs</label><input type="number"
+                [(ngModel)]="selectedAuth.nombreEmetteurs" name="nombreEmetteurs"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Position GPS du site</label><input type="text"
+                [(ngModel)]="selectedAuth.positionGPS" name="positionGPS" placeholder="Ex: 36.8065, 10.1815"></div>
+            <div class="form-group"><label>Hauteur antenne / sol [m]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.hauteurAntenneSol" name="hauteurAntenneSol"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Zone de service</label><input type="text"
+                [(ngModel)]="selectedAuth.zoneService" name="zoneService" placeholder="Ex: Grand Tunis, National"></div>
+            <div class="form-group">
+              <label>Diagramme d'antenne</label>
+              <input type="file" (change)="onFileChange($event, 'edit')" class="form-control-file">
+              <small class="text-xs text-muted" *ngIf="selectedAuth.diagrammeAntenne"
+                style="display: block; margin-top: 4px;">Fichier sélectionné : {{ selectedAuth.diagrammeAntenne
+                }}</small>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- SERVICE RADIODIFFUSION -->
+        <ng-container *ngIf="selectedAuth.service === 'RADIODIFFUSION'">
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceRadio" name="frequenceRadio"></div>
+            <div class="form-group"><label>Fréquence Image [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceImage" name="frequenceImage"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Puissance rayonnée [W]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.puissanceRadio" name="puissanceRadio"></div>
+            <div class="form-group"><label>Bande de fréquences</label><input type="text"
+                [(ngModel)]="selectedAuth.bandeFrequences" name="bandeFrequences" placeholder="Ex: FM, VHF, UHF"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.typeAntenneRadio" name="typeAntenneRadio" placeholder="Ex: Dipode, Yagi">
+            </div>
+            <div class="form-group"><label>Marque d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.marqueAntenneRadio" name="marqueAntenneRadio" placeholder="Ex: Sira"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Norme de diffusion</label>
+              <select [(ngModel)]="selectedAuth.normeDiffusion" name="normeDiffusion">
+                <option value="">-- Sélectionner la norme --</option>
+                <option value="DVB-T">DVB-T</option>
+                <option value="DVB-T2">DVB-T2</option>
+                <option value="FM">FM</option>
+                <option value="AM">AM</option>
+                <option value="DAB">DAB</option>
+                <option value="DRM">DRM</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Largeur de canal [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.largeurCanalRadio" name="largeurCanalRadio"></div>
+          </div>
+          <div class="form-group"><label>Localisation ou zone de service</label><input type="text"
+              [(ngModel)]="selectedAuth.localisationZone" name="localisationZone"
+              placeholder="Ex: Mont Zaghouan, Tunis Nord"></div>
+        </ng-container>
+
+        <!-- SERVICE MARITIME -->
+        <ng-container *ngIf="selectedAuth.service === 'MARITIME'">
+          <div class="form-row">
+            <div class="form-group"><label>Type de navire</label><input type="text"
+                [(ngModel)]="selectedAuth.typeNavire" name="typeNavire" placeholder="Cargo, Pêche, Plaisance"></div>
+            <div class="form-group"><label>Numéro MMSI</label><input type="text" [(ngModel)]="selectedAuth.numMMSI"
+                name="numMMSI"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Indicatif d'appel</label><input type="text"
+                [(ngModel)]="selectedAuth.indicatifAppel" name="indicatifAppel"></div>
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceMaritime" name="frequenceMaritime"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Puissance [W]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.puissanceMaritime" name="puissanceMaritime"></div>
+            <div class="form-group"><label>Zone de navigation</label><input type="text"
+                [(ngModel)]="selectedAuth.zoneNavigation" name="zoneNavigation" placeholder="Ex: Côtière, A2, A3"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Équipement radio</label><input type="text"
+                [(ngModel)]="selectedAuth.equipementRadio" name="equipementRadio"
+                placeholder="Ex: VHF, SMSSM, Emetteur-récepteur"></div>
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.typeAntenneMaritime" name="typeAntenneMaritime"
+                placeholder="Ex: Fouet vertical"></div>
+          </div>
+          <div class="form-group"><label>Position GPS</label><input type="text"
+              [(ngModel)]="selectedAuth.positionGPSMaritime" name="positionGPSMaritime"
+              placeholder="Ex: 34.7405, 10.7603"></div>
+        </ng-container>
+
+        <!-- SERVICE AÉRONAUTIQUE -->
+        <ng-container *ngIf="selectedAuth.service === 'MOBILE_AERONAUTIQUE'">
+          <div class="form-row">
+            <div class="form-group"><label>Type d'aéronef</label><input type="text"
+                [(ngModel)]="selectedAuth.typeAeronef" name="typeAeronef" placeholder="Boeing 737, Hélicoptère...">
+            </div>
+            <div class="form-group"><label>Immatriculation</label><input type="text"
+                [(ngModel)]="selectedAuth.immatriculation" name="immatriculation"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceAero" name="frequenceAero"></div>
+            <div class="form-group"><label>Puissance [W]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.puissanceAero" name="puissanceAero"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mode de communication</label><input type="text"
+                [(ngModel)]="selectedAuth.modeCommunication" name="modeCommunication"
+                placeholder="Ex: AM (VHF), FM, Data"></div>
+            <div class="form-group"><label>Zone d'opération</label><input type="text"
+                [(ngModel)]="selectedAuth.zoneOperation" name="zoneOperation"
+                placeholder="Ex: Espace aérien tunisien, GAT"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.typeAntenneAero" name="typeAntenneAero" placeholder="Ex: Lame VHF"></div>
+            <div class="form-group"><label>Position GPS</label><input type="text"
+                [(ngModel)]="selectedAuth.positionGPSAero" name="positionGPSAero" placeholder="Ex: 36.8510, 10.2272">
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- SERVICE AMATEUR -->
+        <ng-container *ngIf="selectedAuth.service === 'AMATEUR'">
+          <div class="form-row">
+            <div class="form-group"><label>Classe amateur</label><input type="text"
+                [(ngModel)]="selectedAuth.classeAmateur" name="classeAmateur" placeholder="Ex: A, B, C"></div>
+            <div class="form-group"><label>Indicatif d'appel</label><input type="text"
+                [(ngModel)]="selectedAuth.indicatif" name="indicatif"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Fréquence [MHz]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.frequenceAmateur" name="frequenceAmateur"></div>
+            <div class="form-group"><label>Puissance [W]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.puissanceAmateur" name="puissanceAmateur"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mode d'émission</label><input type="text"
+                [(ngModel)]="selectedAuth.modeEmission" name="modeEmission" placeholder="Ex: CW, SSB, FM, Digital">
+            </div>
+            <div class="form-group"><label>Type d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.antenneType" name="antenneType" placeholder="Ex: Yagi, Dipole"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Marque d'antenne</label><input type="text"
+                [(ngModel)]="selectedAuth.marqueAntenneAmateur" name="marqueAntenneAmateur"></div>
+            <div class="form-group"><label>Gain antenne [dBi]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.gainAntenneAmateur" name="gainAntenneAmateur"></div>
+          </div>
+          <div class="form-group"><label>Position GPS</label><input type="text"
+              [(ngModel)]="selectedAuth.positionGPSAmateur" name="positionGPSAmateur"
+              placeholder="Ex: 36.7215, 10.2014"></div>
+        </ng-container>
+
+        <!-- SERVICE SATELLITE -->
+        <ng-container *ngIf="selectedAuth.service === 'SATELLITE'">
+          <div class="form-row">
+            <div class="form-group"><label>Nom du satellite</label><input type="text"
+                [(ngModel)]="selectedAuth.nomSatellite" name="nomSatellite" placeholder="Ex: Nilesat 201, Eutelsat">
+            </div>
+            <div class="form-group">
+              <label>Type de satellite</label>
+              <select [(ngModel)]="selectedAuth.typeSatellite" name="typeSatellite">
+                <option value="">-- Sélectionner le type --</option>
+                <option value="GEO">GEO</option>
+                <option value="Non-GEO">Non-GEO</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Position orbitale</label><input type="text"
+                [(ngModel)]="selectedAuth.positionOrbitale" name="positionOrbitale" placeholder="Ex: 7.0° W"></div>
+            <div class="form-group"><label>Type de station</label><input type="text"
+                [(ngModel)]="selectedAuth.typeStation" name="typeStation" placeholder="Ex: Station terrienne fixe VSAT">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Position GPS de la station</label><input type="text"
+                [(ngModel)]="selectedAuth.positionGPSStation" name="positionGPSStation"
+                placeholder="Ex: 36.8065, 10.1815"></div>
+            <div class="form-group"><label>Débit [Mbit/s]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.debit" name="debit"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Modulation</label><input type="text" [(ngModel)]="selectedAuth.modulation"
+                name="modulation" placeholder="Ex: QPSK, OQPSK"></div>
+            <div class="form-group"><label>Gain antenne [dBi]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.gainAntenneSatellite" name="gainAntenneSatellite"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Diamètre antenne [m]</label><input type="number" step="any"
+                [(ngModel)]="selectedAuth.diametreAntenneSat" name="diametreAntenneSat"></div>
+            <div class="form-group"><label>Bande de fréquences</label><input type="text"
+                [(ngModel)]="selectedAuth.bandeFreqSat" name="bandeFreqSat" placeholder="Ex: Ku, Ka, C"></div>
+          </div>
+        </ng-container>
+
+        <div class="form-group">
+          <label>Conditions d'exploitation & de sécurité</label>
+          <textarea rows="2" [(ngModel)]="selectedAuth.conditions" name="conditions"
+            placeholder="Conditions particulières..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Observations complémentaires</label>
+          <textarea rows="2" [(ngModel)]="selectedAuth.observations" name="observations"
+            placeholder="Remarques et détails techniques libres..."></textarea>
+        </div>
+      </ng-container>
+
+      <div class="modal-actions-space">
+        <button type="button" class="btn btn-danger-outline" (click)="onDelete(selectedAuth)" [disabled]="isSubmitting">
+          Supprimer la licence
+        </button>
+
+        <div class="right-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeDetailsModal()" [disabled]="isSubmitting">
+            Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+            <svg *ngIf="isSubmitting" class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16"
+              height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581" />
+            </svg>
+            <span>{{ isSubmitting ? 'Enregistrement...' : 'Enregistrer les modifications' }}</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,11 @@
+<div class="app-layout" [class.login-layout]="isLoginPage">
+  <app-sidebar class="sidebar-wrapper" *ngIf="!isLoginPage"></app-sidebar>
+  <div class="main-wrapper" [class.full-width]="isLoginPage">
+    <app-header *ngIf="!isLoginPage"></app-header>
+    <main class="main-content" [class.login-content]="isLoginPage">
+      <div class="glow-orb orb-1" *ngIf="!isLoginPage"></div>
+      <div class="glow-orb orb-2" *ngIf="!isLoginPage"></div>
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

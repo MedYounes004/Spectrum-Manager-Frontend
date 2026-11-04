@@ -1,0 +1,448 @@
+<div class="page-container animate-fade-in">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Factures & Redevances</h1>
+      <p class="page-subtitle">Facturation des autorisations par client — individuelle ou collective</p>
+    </div>
+    <div class="header-actions-group">
+      <button class="btn btn-secondary mr-3" (click)="exportExcel()" *ngIf="activeView === 'invoices'">
+        Exporter (CSV)
+      </button>
+      <button class="btn btn-primary" (click)="openAddModal()">
+        + Nouvelle facture
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="summary-cards">
+    <div class="summary-card">
+      <div class="title">Total factures</div>
+      <div class="amount">{{ stats.total }}</div>
+    </div>
+    <div class="summary-card stat-success">
+      <div class="title">Encaissé (TND)</div>
+      <div class="amount sum-highlight">{{ stats.total_montant | number: '1.2-2' }}</div>
+    </div>
+    <div class="summary-card alert">
+      <div class="title">En attente</div>
+      <div class="amount text-warning">{{ stats.en_attente }}</div>
+    </div>
+    <div class="summary-card danger">
+      <div class="title">En retard</div>
+      <div class="amount text-danger">{{ stats.en_retard }}</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="view-tabs">
+    <button class="view-tab" [class.active]="activeView === 'billing'" (click)="switchView('billing')">
+      Autorisations à facturer
+    </button>
+    <button class="view-tab" [class.active]="activeView === 'invoices'" (click)="switchView('invoices')">
+      Historique des factures
+    </button>
+  </div>
+
+  <!-- ═══ ONGLET : Autorisations à facturer ═══ -->
+  <div *ngIf="activeView === 'billing'">
+
+    <div class="filter-bar premium-card mb-4">
+      <div class="search-wrapper">
+        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" class="table-search" placeholder="Rechercher par nom de client, n° autorisation..."
+          [(ngModel)]="authSearchTerm">
+      </div>
+      <div class="filters-select">
+        <select class="table-filter" [(ngModel)]="authClientFilter" (ngModelChange)="onAuthClientFilterChange()">
+          <option value="">Tous les clients</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.nom }} {{ c.prenom }}</option>
+        </select>
+        <select class="table-filter" [(ngModel)]="authServiceFilter">
+          <option value="">Tous les services</option>
+          <option *ngFor="let s of serviceOptions" [value]="s">{{ typeAutorisationLabels[s] }}</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Barre de sélection -->
+    <div class="selection-bar premium-card" *ngIf="selectedAutorisationIds.length > 0">
+      <div class="selection-info">
+        <strong>{{ selectedAutorisationIds.length }}</strong> autorisation(s) sélectionnée(s) —
+        <span class="mode-label">{{ billingModeLabel }}</span>
+      </div>
+      <button class="btn btn-primary" (click)="openBillingFromSelection()">
+        Facturer la sélection
+      </button>
+    </div>
+
+    <div class="loading-container premium-card mt-4" *ngIf="isLoadingAuths">
+      <div class="loading-spinner"><span>Chargement des autorisations...</span></div>
+    </div>
+
+    <div class="empty-state premium-card" *ngIf="!isLoadingAuths && filteredAuthorizationsForBilling.length === 0">
+      <p>Aucune autorisation ne correspond à vos filtres.</p>
+    </div>
+
+    <div class="table-container premium-card mt-4 p-0"
+      *ngIf="!isLoadingAuths && filteredAuthorizationsForBilling.length > 0">
+      <table class="invoices-table auth-billing-table">
+        <thead>
+          <tr>
+            <th class="col-check">
+              <input type="checkbox" [checked]="areAllFilteredSelected()" (change)="toggleAllFilteredAuthorizations()"
+                title="Tout sélectionner">
+            </th>
+            <th>N° Autorisation</th>
+            <th>Client / Titulaire</th>
+            <th>Service</th>
+            <th>Statut</th>
+            <th>Période</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let auth of filteredAuthorizationsForBilling" [class.row-selected]="isAuthSelected(auth.id)">
+            <td class="col-check">
+              <input type="checkbox" [checked]="isAuthSelected(auth.id)" (change)="toggleAutorisation(auth.id!)">
+            </td>
+            <td><span class="font-mono">{{ auth.numeroAutorisation }}</span></td>
+            <td>
+              <div class="entity-name">{{ getAuthClientName(auth) }}</div>
+              <div class="entity-sub" *ngIf="auth.client?.email">{{ auth.client?.email }}</div>
+            </td>
+            <td><span class="type-badge">{{ getAuthService(auth) }}</span></td>
+            <td><span class="status status-primary">{{ auth.statut }}</span></td>
+            <td>
+              <span class="text-sm">{{ auth.dateDebut }}</span>
+              <span class="text-muted"> → </span>
+              <span class="text-sm">{{ auth.dateFin || '∞' }}</span>
+            </td>
+            <td>
+              <button class="link-btn" (click)="selectedAutorisationIds = [auth.id!]; openBillingFromSelection()">
+                Facturer
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="help-hint mt-3">
+      Sélectionnez <strong>1 autorisation</strong> pour une facture individuelle, ou <strong>plusieurs autorisations du
+        même client</strong> pour une facture collective.
+    </p>
+  </div>
+
+  <!-- ═══ ONGLET : Historique des factures ═══ -->
+  <div *ngIf="activeView === 'invoices'">
+
+    <div class="filter-bar premium-card mb-4">
+      <div class="search-wrapper">
+        <input type="text" class="table-search" placeholder="Rechercher par n° facture, client..."
+          [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+      </div>
+      <div class="filters-select">
+        <select class="table-filter" [(ngModel)]="selectedClientId" (ngModelChange)="applyFilters()">
+          <option value="">Tous les clients</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.nom }} {{ c.prenom }}</option>
+        </select>
+        <select class="table-filter" [(ngModel)]="selectedTypeAutorisation" (ngModelChange)="applyFilters()">
+          <option value="">Tous les services</option>
+          <option *ngFor="let s of serviceOptions" [value]="s">{{ typeAutorisationLabels[s] }}</option>
+        </select>
+        <select class="table-filter" [(ngModel)]="selectedStatut" (ngModelChange)="applyFilters()">
+          <option value="">Tous les statuts</option>
+          <option *ngFor="let s of statusOptions" [value]="s">{{ statutLabels[s] }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="loading-container premium-card mt-4" *ngIf="isLoading">
+      <div class="loading-spinner"><span>Chargement...</span></div>
+    </div>
+
+    <div class="alert-banner alert-error mt-4" *ngIf="errorMsg && !isLoading">{{ errorMsg }}</div>
+
+    <div class="empty-state premium-card" *ngIf="!isLoading && !errorMsg && filteredInvoices.length === 0">
+      <p>Aucune facture trouvée.</p>
+    </div>
+
+    <div class="table-container premium-card mt-4 p-0" *ngIf="!isLoading && filteredInvoices.length > 0">
+      <table class="invoices-table">
+        <thead>
+          <tr>
+            <th>N° Facture</th>
+            <th>Client</th>
+            <th>Type</th>
+            <th>Service</th>
+            <th>Montant</th>
+            <th>Émission</th>
+            <th>Échéance</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invoice of filteredInvoices">
+            <td><span class="font-mono">{{ invoice.numeroFacture }}</span></td>
+            <td>
+              <div class="entity-name">{{ getClientName(invoice) }}</div>
+              <div class="entity-sub" *ngIf="invoice.autorisationId">Auth: {{
+                getLinkedAuthNumero(invoice.autorisationId) }}</div>
+            </td>
+            <td>
+              <span class="type-badge">{{ typeOperationLabels[invoice.type!] || invoice.type }}</span>
+              <span class="type-badge badge-alt" *ngIf="invoice.typeFacture">{{ typeFactureLabels[invoice.typeFacture]
+                }}</span>
+            </td>
+            <td>{{ getTypeAutorisationLabel(invoice.typeAutorisation) }}</td>
+            <td><span class="invoice-amount">{{ invoice.montant | number: '1.2-2' }} TND</span></td>
+            <td>{{ invoice.dateEmission }}</td>
+            <td [class.text-danger]="invoice.statut === 'EN_RETARD'">{{ invoice.dateEcheance }}</td>
+            <td><span class="status" [ngClass]="statutBadgeClass[invoice.statut]">{{ statutLabels[invoice.statut]
+                }}</span></td>
+            <td>
+              <button class="btn-sm btn-pdf" *ngIf="invoice.statut === 'PAYEE'"
+                (click)="downloadInvoicePdf(invoice, $event)" title="Télécharger la facture acquittée en PDF">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="13" height="13">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                PDF
+              </button>
+              <button class="btn-sm btn-success-outline" *ngIf="invoice.statut !== 'PAYEE'"
+                (click)="marquerPayee(invoice, $event)">Payée</button>
+              <button class="link-btn" (click)="openDetailsModal(invoice)">Détails</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal création facture -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-card modal-card-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Créer une facture — {{ typeFactureLabels[newInvoice.typeFacture!] || 'Facture' }}</h2>
+      <button class="modal-close" (click)="closeAddModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="onAddSubmit(); $event.preventDefault()">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nature du document *</label>
+          <select [(ngModel)]="newInvoice.typeFacture" name="typeFacture">
+            <option *ngFor="let ty of typeFactureOptions" [value]="ty">{{ typeFactureLabels[ty] }}</option>
+          </select>
+        </div>
+        <div class="form-group" *ngIf="newInvoice.typeFacture !== 'AVOIR'">
+          <label>Type de charge *</label>
+          <select [(ngModel)]="newInvoice.type" name="type">
+            <option *ngFor="let ty of typeOptions" [value]="ty">{{ typeOperationLabels[ty] }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Client *</label>
+          <select [(ngModel)]="newInvoice.clientId" name="clientId">
+            <option [value]="0">-- Choisir --</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.nom }} {{ c.prenom }}</option>
+          </select>
+        </div>
+        <div class="form-group" *ngIf="newInvoice.typeFacture !== 'AVOIR'">
+          <label>Statut initial *</label>
+          <select [(ngModel)]="newInvoice.statut" name="statut">
+            <option *ngFor="let st of statusOptions" [value]="st">{{ statutLabels[st] }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Autorisations sélectionnées (individuelle) -->
+      <div class="form-group" *ngIf="newInvoice.typeFacture === 'INDIVIDUELLE'">
+        <label>Autorisation liée</label>
+        <select [(ngModel)]="newInvoice.autorisationId" name="autorisationId"
+          (change)="onLinkAuthorizationChange($any($event.target).value)">
+          <option [value]="undefined">-- Choisir une autorisation --</option>
+          <option *ngFor="let auth of clientAuthorizations" [value]="auth.id">
+            {{ auth.numeroAutorisation }} — {{ getAuthService(auth) }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Autorisations sélectionnées (collective) -->
+      <div class="form-group" *ngIf="newInvoice.typeFacture === 'COLLECTIVE'">
+        <label>Autorisations incluses ({{ selectedAutorisationIds.length }})</label>
+        <div class="selected-auth-list" *ngIf="selectedAuthorizations.length > 0">
+          <div class="selected-auth-item" *ngFor="let auth of selectedAuthorizations">
+            <span class="font-mono">{{ auth.numeroAutorisation }}</span>
+            <span class="text-muted"> — {{ getAuthService(auth) }}</span>
+          </div>
+        </div>
+        <div class="multi-select-box" *ngIf="newInvoice.clientId && selectedAutorisationIds.length === 0">
+          <p class="text-muted text-sm">Sélectionnez les autorisations dans l'onglet « Autorisations à facturer ».</p>
+          <div *ngFor="let auth of clientAuthorizations" class="checkbox-item">
+            <label>
+              <input type="checkbox" [checked]="isAuthSelected(auth.id)" (change)="toggleAutorisation(auth.id!)">
+              {{ auth.numeroAutorisation }} — {{ getAuthService(auth) }}
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Avoir -->
+      <div class="form-group" *ngIf="newInvoice.typeFacture === 'AVOIR'">
+        <label>Facture originale *</label>
+        <select [(ngModel)]="selectedFactureIdToCancel" name="factureIdToCancel"
+          (change)="onFactureOriginaleChange($any($event.target).value)">
+          <option [value]="undefined">-- Choisir --</option>
+          <option *ngFor="let f of invoices" [value]="f.id" [hidden]="f.typeFacture === 'AVOIR'">
+            {{ f.numeroFacture }} — {{ f.montant | number:'1.2-2' }} TND
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Description *</label>
+        <input type="text" [(ngModel)]="newInvoice.description" name="description" placeholder="Motif de facturation">
+      </div>
+
+      <!-- Montant calculé automatiquement par formule -->
+      <div class="form-group" *ngIf="newInvoice.typeFacture !== 'AVOIR'">
+        <label>Montant TTC (TND) *</label>
+
+        <!-- Formule trouvée → affichage automatique, non éditable -->
+        <div class="montant-auto-block" *ngIf="formulaFound; else montantManuel">
+          <div class="montant-auto-value">
+            <span class="montant-auto-icon">⚡</span>
+            <span class="montant-auto-number">{{ newInvoice.montant | number:'1.2-2' }} TND</span>
+            <span class="montant-auto-label">calculé automatiquement</span>
+            <button type="button" class="btn-recalc" (click)="autoCalculateInvoiceAmount()" title="Recalculer">↻</button>
+          </div>
+          <div class="montant-auto-detail">{{ calculatedFormulaInfo }}</div>
+          <!-- champ caché pour conserver la valeur -->
+          <input type="hidden" [(ngModel)]="newInvoice.montant" name="montant">
+        </div>
+
+        <!-- Pas de formule → saisie manuelle -->
+        <ng-template #montantManuel>
+          <div class="montant-no-formula-hint" *ngIf="newInvoice.autorisationId">
+            ⚠️ Aucune formule tarifaire configurée pour ce service — saisie manuelle requise.
+          </div>
+          <input type="number" step="0.01" [(ngModel)]="newInvoice.montant" name="montant"
+            placeholder="Entrez le montant TTC en TND">
+        </ng-template>
+      </div>
+
+      <!-- Montant pour AVOIR : reste saisissable -->
+      <div class="form-group" *ngIf="newInvoice.typeFacture === 'AVOIR'">
+        <label>Montant TTC (TND) *</label>
+        <input type="number" step="0.01" [(ngModel)]="newInvoice.montant" name="montantAvoir">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date d'émission *</label>
+          <input type="date" [(ngModel)]="newInvoice.dateEmission" name="dateEmission">
+        </div>
+        <div class="form-group">
+          <label>Date d'échéance *</label>
+          <input type="date" [(ngModel)]="newInvoice.dateEcheance" name="dateEcheance">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mode de paiement</label>
+          <input type="text" [(ngModel)]="newInvoice.modePaiement" name="modePaiement">
+        </div>
+        <div class="form-group">
+          <label>Référence paiement</label>
+          <input type="text" [(ngModel)]="newInvoice.referencePaiement" name="referencePaiement">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="closeAddModal()" [disabled]="isSubmitting">Annuler</button>
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+          {{ isSubmitting ? 'Enregistrement...' : 'Enregistrer la facture' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal détails facture -->
+<div class="modal-overlay" *ngIf="showDetailsModal && selectedInvoice" (click)="closeDetailsModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Facture {{ selectedInvoice.numeroFacture }}</h2>
+      <button class="modal-close" (click)="closeDetailsModal()">✕</button>
+    </div>
+
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="onUpdateSubmit(); $event.preventDefault()">
+      <div class="payment-trigger-row" *ngIf="selectedInvoice.statut !== 'PAYEE'">
+        <button type="button" class="btn btn-success-filled" (click)="marquerPayee(selectedInvoice)">
+          Marquer comme payée
+        </button>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Client *</label>
+          <select [(ngModel)]="selectedInvoice.clientId" name="clientId">
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.nom }} {{ c.prenom }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Statut *</label>
+          <select [(ngModel)]="selectedInvoice.statut" name="statut">
+            <option *ngFor="let st of statusOptions" [value]="st">{{ statutLabels[st] }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" [(ngModel)]="selectedInvoice.description" name="description">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Montant (TND)</label>
+          <input type="number" step="0.01" [(ngModel)]="selectedInvoice.montant" name="montant">
+        </div>
+        <div class="form-group">
+          <label>Date émission</label>
+          <input type="date" [(ngModel)]="selectedInvoice.dateEmission" name="dateEmission">
+        </div>
+        <div class="form-group">
+          <label>Date échéance</label>
+          <input type="date" [(ngModel)]="selectedInvoice.dateEcheance" name="dateEcheance">
+        </div>
+      </div>
+
+      <div class="modal-actions-space">
+        <button type="button" class="btn btn-danger-outline" (click)="onDelete(selectedInvoice)">Supprimer</button>
+        <div class="right-actions">
+          <button type="button" class="btn btn-ghost" (click)="closeDetailsModal()">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">Enregistrer</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

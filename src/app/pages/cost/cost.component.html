@@ -1,0 +1,400 @@
+<div class="page-container animate-fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Tarification & Calcul Automatique (Cost)</h1>
+      <p class="page-subtitle">Définition des formules de redevance par service et calcul dynamique des montants de factures</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Ajouter une Formule
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="summary-cards">
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Total Formules</div>
+      <div class="amount text-primary font-bold">{{ stats.total }}</div>
+    </div>
+    <div class="summary-card stat-success">
+      <div class="title font-semibold text-secondary">Formules Actives</div>
+      <div class="amount text-success font-bold">{{ stats.actives }}</div>
+    </div>
+    <div class="summary-card stat-cyan">
+      <div class="title font-semibold text-secondary">Services Couverts</div>
+      <div class="amount text-cyan font-bold">{{ stats.servicesCount }} / {{ services.length }}</div>
+    </div>
+    <div class="summary-card stat-purple">
+      <div class="title font-semibold text-secondary">TVA par Défaut</div>
+      <div class="amount text-purple font-bold">19 %</div>
+    </div>
+  </div>
+
+  <!-- ══════════ SIMULATEUR & CALCULATEUR EN DIRECT ══════════ -->
+  <div class="simulator-card premium-card mb-4">
+    <div class="simulator-header">
+      <div class="sim-title-group">
+        <div class="sim-badge">⚡ Moteur de calcul en temps réel</div>
+        <h2>Simulateur de Redevance Spectre</h2>
+        <p class="text-sm text-secondary">Testez immédiatement le calcul automatique selon les caractéristiques d'une autorisation</p>
+      </div>
+      <div class="sim-quick-auth">
+        <label>Tester avec une autorisation existante :</label>
+        <select class="auth-select" (ngModelChange)="onSimAuthSelected($event)" [ngModel]="selectedSimAuthId">
+          <option [value]="null">-- Sélectionner une autorisation pour préremplir --</option>
+          <option *ngFor="let a of authorizations" [value]="a.id">
+            {{ getAuthLabel(a) }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="simulator-grid">
+      <!-- Panneau de paramètres -->
+      <div class="sim-params-col">
+        <div class="param-field mb-2">
+          <label>Service radioélectrique</label>
+          <select [(ngModel)]="simService" (ngModelChange)="onSimServiceChange()" class="param-input">
+            <option *ngFor="let s of services" [value]="s">{{ serviceLabels[s] }}</option>
+          </select>
+        </div>
+
+        <div class="params-sliders">
+          <!-- Fréquence -->
+          <div class="slider-field">
+            <div class="slider-labels">
+              <span>📡 Fréquence centrale / assignée</span>
+              <strong class="slider-val">{{ simFrequence }} MHz</strong>
+            </div>
+            <input type="range" min="1" max="10000" step="1" [(ngModel)]="simFrequence" (ngModelChange)="runSimulation()" class="param-range">
+          </div>
+
+          <!-- Puissance -->
+          <div class="slider-field">
+            <div class="slider-labels">
+              <span>⚡ Puissance rayonnée (ERP/EIRP)</span>
+              <strong class="slider-val">{{ simPuissance }} W</strong>
+            </div>
+            <input type="range" min="0" max="5000" step="5" [(ngModel)]="simPuissance" (ngModelChange)="runSimulation()" class="param-range">
+          </div>
+
+          <!-- Nombre d'appareils -->
+          <div class="slider-field">
+            <div class="slider-labels">
+              <span>📻 Nombre d'émetteurs / appareils</span>
+              <strong class="slider-val">{{ simNbAppareils }}</strong>
+            </div>
+            <input type="range" min="1" max="100" step="1" [(ngModel)]="simNbAppareils" (ngModelChange)="runSimulation()" class="param-range">
+          </div>
+
+          <div class="params-row mt-2">
+            <div class="param-field">
+              <label>Largeur de bande (MHz)</label>
+              <input type="number" step="any" [(ngModel)]="simLargeurBande" (ngModelChange)="runSimulation()" class="param-input">
+            </div>
+            <div class="param-field">
+              <label>Gain antenne (dBi)</label>
+              <input type="number" step="any" [(ngModel)]="simGainAntenne" (ngModelChange)="runSimulation()" class="param-input">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panneau de résultat du calcul -->
+      <div class="sim-result-col">
+        <div class="active-formula-notice" *ngIf="simActiveFormule">
+          <div class="formula-tag">
+            Formule active : <strong>{{ getServiceLabel(simActiveFormule.service) }}</strong>
+          </div>
+          <div class="formula-math">
+            <code>HT = {{ getFormulaEquation(simActiveFormule) }}</code>
+          </div>
+        </div>
+
+        <div class="no-formula-warning" *ngIf="!simActiveFormule">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Aucune formule active trouvée pour ce service. Créez-en une ci-dessous.
+        </div>
+
+        <div class="breakdown-cards" *ngIf="simResult">
+          <div class="breakdown-row">
+            <span class="breakdown-label">Forfait Base</span>
+            <span class="breakdown-value">{{ simResult.montantBase | number:'1.2-2' }} TND</span>
+          </div>
+          <div class="breakdown-row" *ngIf="simResult.partPuissance > 0">
+            <span class="breakdown-label">Part Puissance ({{ simPuissance }} W × {{ simActiveFormule?.coeffPuissance }})</span>
+            <span class="breakdown-value">+ {{ simResult.partPuissance | number:'1.2-2' }} TND</span>
+          </div>
+          <div class="breakdown-row" *ngIf="simResult.partFrequence > 0">
+            <span class="breakdown-label">Part Fréquence ({{ simFrequence }} MHz × {{ simActiveFormule?.coeffFrequence }})</span>
+            <span class="breakdown-value">+ {{ simResult.partFrequence | number:'1.2-2' }} TND</span>
+          </div>
+          <div class="breakdown-row" *ngIf="simResult.partAppareils > 0">
+            <span class="breakdown-label">Part Appareils ({{ simNbAppareils }} × {{ simActiveFormule?.coeffAppareils }})</span>
+            <span class="breakdown-value">+ {{ simResult.partAppareils | number:'1.2-2' }} TND</span>
+          </div>
+          <div class="breakdown-row" *ngIf="simResult.partLargeurBande > 0">
+            <span class="breakdown-label">Part Largeur de bande</span>
+            <span class="breakdown-value">+ {{ simResult.partLargeurBande | number:'1.2-2' }} TND</span>
+          </div>
+
+          <div class="breakdown-divider"></div>
+
+          <div class="breakdown-row total-ht-row">
+            <span>Total Hors Taxes (HT)</span>
+            <strong>{{ simResult.montantHT | number:'1.2-2' }} TND</strong>
+          </div>
+          <div class="breakdown-row tva-row">
+            <span>TVA ({{ simResult.tvaTaux }}%)</span>
+            <span>+ {{ simResult.montantTVA | number:'1.2-2' }} TND</span>
+          </div>
+
+          <div class="breakdown-total-card">
+            <div class="total-caption">Montant Facture TTC Calculé</div>
+            <div class="total-amount">{{ simResult.montantTTC | number:'1.2-2' }} <span class="currency">TND</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ FILTRES & GESTION DES FORMULES ══════════ -->
+  <div class="filter-bar premium-card mb-4">
+    <div class="search-wrapper">
+      <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" placeholder="Rechercher une formule par service..." class="table-search"
+        [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+    </div>
+
+    <div class="filters-select">
+      <!-- Filtre Service -->
+      <select class="table-filter" [(ngModel)]="selectedService" (ngModelChange)="applyFilters()">
+        <option value="">Tous les services</option>
+        <option *ngFor="let s of services" [value]="s">{{ serviceLabels[s] }}</option>
+      </select>
+
+      <!-- Filtre Statut -->
+      <select class="table-filter" [(ngModel)]="selectedStatut" (ngModelChange)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        <option value="ACTIF">Actives uniquement</option>
+        <option value="INACTIF">Inactives uniquement</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container premium-card mt-4" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Chargement des formules tarifaires...</span>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state premium-card" *ngIf="!isLoading && filteredFormules.length === 0">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" class="text-muted">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+    <p>Aucune formule tarifaire ne correspond aux critères.</p>
+    <button class="btn btn-primary mt-2" (click)="openCreateModal()">Créer une formule</button>
+  </div>
+
+  <!-- Formules Bento Cards Grid -->
+  <div class="formules-grid" *ngIf="!isLoading && filteredFormules.length > 0">
+    <div class="formule-card premium-card" *ngFor="let f of filteredFormules" [class.inactive-card]="!f.actif">
+      
+      <!-- Card Header -->
+      <div class="formule-card-header">
+        <div class="service-brand">
+          <img [src]="serviceLogos[f.service] || 'assets/logos/mobile.png'" alt="Logo" class="f-service-logo">
+          <div>
+            <span class="service-pill" [ngClass]="getServiceBadgeClass(f.service)">{{ getServiceLabel(f.service) }}</span>
+          </div>
+        </div>
+
+        <div class="formule-status-toggle">
+          <span class="status-indicator" [class.active]="f.actif" (click)="toggleActif(f, $event)" title="Cliquer pour basculer le statut">
+            {{ f.actif ? 'Actif' : 'Inactif' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Equation box -->
+      <div class="equation-box">
+        <div class="equation-title">Équation de calcul HT :</div>
+        <div class="equation-content">
+          <code>{{ getFormulaEquation(f) }}</code>
+        </div>
+      </div>
+
+      <!-- Coefficients Grid Table -->
+      <div class="coeffs-grid">
+        <div class="coeff-item">
+          <span class="c-label">Base forfaitaire</span>
+          <strong class="c-val">{{ f.montantBase || 0 }} TND</strong>
+        </div>
+        <div class="coeff-item">
+          <span class="c-label">Coeff. Puissance</span>
+          <strong class="c-val">{{ f.coeffPuissance || 0 }} <span class="c-unit">/ W</span></strong>
+        </div>
+        <div class="coeff-item">
+          <span class="c-label">Coeff. Fréquence</span>
+          <strong class="c-val">{{ f.coeffFrequence || 0 }} <span class="c-unit">/ MHz</span></strong>
+        </div>
+        <div class="coeff-item">
+          <span class="c-label">Coeff. Appareils</span>
+          <strong class="c-val">{{ f.coeffAppareils || 0 }} <span class="c-unit">/ app</span></strong>
+        </div>
+        <div class="coeff-item" *ngIf="f.coeffLargeurBande">
+          <span class="c-label">Coeff. Largeur</span>
+          <strong class="c-val">{{ f.coeffLargeurBande }} <span class="c-unit">/ MHz</span></strong>
+        </div>
+        <div class="coeff-item" *ngIf="f.coeffGainAntenne">
+          <span class="c-label">Coeff. Gain</span>
+          <strong class="c-val">{{ f.coeffGainAntenne }} <span class="c-unit">/ dBi</span></strong>
+        </div>
+        <div class="coeff-item">
+          <span class="c-label">TVA</span>
+          <strong class="c-val">{{ f.tva != null ? f.tva : 19 }} %</strong>
+        </div>
+      </div>
+
+      <!-- Card Footer Actions -->
+      <div class="formule-card-footer">
+        <button class="action-btn btn-duplicate" (click)="duplicateFormule(f)" title="Dupliquer la formule">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="15" height="15">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Dupliquer
+        </button>
+        <button class="action-btn btn-edit" (click)="openEditModal(f)">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="15" height="15">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Modifier
+        </button>
+        <button class="action-btn btn-delete" (click)="deleteFormule(f, $event)" title="Supprimer">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="15" height="15">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ MODAL CRÉATION / ÉDITION DE FORMULE ══════════ -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <div>
+        <h2>{{ isEditing ? 'Modifier la Formule Tarifaire' : 'Nouvelle Formule Tarifaire' }}</h2>
+        <p class="text-xs text-secondary">Paramétrez les coefficients servant à calculer automatiquement les redevances de facturation</p>
+      </div>
+      <button class="modal-close" (click)="closeModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Alert banners -->
+    <div class="alert-banner alert-error" *ngIf="modalError">{{ modalError }}</div>
+    <div class="alert-banner alert-success" *ngIf="modalSuccess">{{ modalSuccess }}</div>
+
+    <form class="modal-form" (submit)="saveFormule(); $event.preventDefault()">
+
+      <div class="form-section-title">Champ d'application</div>
+      <div class="form-group">
+        <label>Service radioélectrique *</label>
+        <select [(ngModel)]="activeFormule.service" name="service" required>
+          <option *ngFor="let s of services" [value]="s">{{ serviceLabels[s] }}</option>
+        </select>
+      </div>
+
+      <div class="form-section-title">Paramètres Forfaitaires & TVA</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Montant Forfaitaire de Base (TND) *</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.montantBase" name="montantBase" placeholder="Ex: 500">
+        </div>
+        <div class="form-group">
+          <label>Taux de TVA (%) *</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.tva" name="tva" placeholder="Ex: 19">
+        </div>
+      </div>
+
+      <div class="form-section-title">Coefficients Techniques (Formule Automatique)</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Coeff. Puissance [TND / Watt]</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.coeffPuissance" name="coeffPuissance" placeholder="Ex: 2.5">
+          <small class="text-xs text-muted">Multiplié par la puissance rayonnée saisie dans l'autorisation</small>
+        </div>
+        <div class="form-group">
+          <label>Coeff. Fréquence [TND / MHz]</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.coeffFrequence" name="coeffFrequence" placeholder="Ex: 0.15">
+          <small class="text-xs text-muted">Multiplié par la fréquence centrale ou assignée [MHz]</small>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Coeff. Appareils / Émetteurs [TND / unité]</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.coeffAppareils" name="coeffAppareils" placeholder="Ex: 45">
+          <small class="text-xs text-muted">Multiplié par le nombre d'émetteurs ou appareils déclarés</small>
+        </div>
+        <div class="form-group">
+          <label>Coeff. Largeur de bande [TND / MHz]</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.coeffLargeurBande" name="coeffLargeurBande" placeholder="Ex: 10">
+          <small class="text-xs text-muted">Multiplié par la largeur de canal [MHz]</small>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Coeff. Gain d'antenne [TND / dBi]</label>
+          <input type="number" step="any" [(ngModel)]="activeFormule.coeffGainAntenne" name="coeffGainAntenne" placeholder="Ex: 1.2">
+        </div>
+        <div class="form-group">
+          <label>Statut de la formule</label>
+          <select [(ngModel)]="activeFormule.actif" name="actif">
+            <option [ngValue]="true">Active (utilisée pour les calculs auto)</option>
+            <option [ngValue]="false">Inactive (archivée)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview of Equation -->
+      <div class="modal-equation-preview mt-3">
+        <span class="text-xs font-semibold text-secondary">Aperçu de la formule :</span>
+        <code>HT = {{ getFormulaEquation(activeFormule) }}</code>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="closeModal()" [disabled]="isSubmitting">Annuler</button>
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+          <svg *ngIf="isSubmitting" class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581" />
+          </svg>
+          <span>{{ isSubmitting ? 'Enregistrement...' : (isEditing ? 'Enregistrer les modifications' : 'Créer la formule') }}</span>
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+</div>

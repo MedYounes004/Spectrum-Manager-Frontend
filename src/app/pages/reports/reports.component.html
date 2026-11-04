@@ -1,0 +1,276 @@
+<div class="page-container animate-fade-in">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Rapports & Bilans</h1>
+      <p class="page-subtitle">Indicateurs consolidés issus des autorisations et de la facturation</p>
+    </div>
+    <div class="header-actions-group">
+      <button class="btn btn-secondary" (click)="refreshAll()" [disabled]="isLoadingBilan || isLoadingActivite">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Actualiser
+      </button>
+      <button class="btn btn-primary" (click)="activeTab === 'bilan' ? exportBilanCsv() : exportActiviteCsv()"
+        [disabled]="(activeTab === 'bilan' && !bilan) || (activeTab === 'activite' && !activite)">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Exporter (CSV)
+      </button>
+    </div>
+  </div>
+
+  <!-- Résumé rapide -->
+  <div class="summary-cards" *ngIf="resume">
+    <div class="summary-card">
+      <div class="title">Année en cours</div>
+      <div class="amount">{{ resume.annee }}</div>
+    </div>
+    <div class="summary-card stat-success">
+      <div class="title">Autorisations actives</div>
+      <div class="amount">{{ resume.autorisationsActives }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="title">Total autorisations</div>
+      <div class="amount">{{ resume.totalAutorisations }}</div>
+    </div>
+    <div class="summary-card alert">
+      <div class="title">Recettes encaissées (TND)</div>
+      <div class="amount sum-highlight">{{ resume.totalRecettes | number: '1.2-2' }}</div>
+    </div>
+  </div>
+
+  <!-- Onglets -->
+  <div class="tabs-bar premium-card">
+    <button class="tab-btn" [class.active]="activeTab === 'bilan'" (click)="switchTab('bilan')">
+      Bilan annuel
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'activite'" (click)="switchTab('activite')">
+      Rapport d'activité
+    </button>
+  </div>
+
+  <!-- Erreur -->
+  <div class="alert-banner alert-error mt-4" *ngIf="errorMsg">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    {{ errorMsg }}
+    <button class="retry-btn" (click)="refreshAll()">Réessayer</button>
+  </div>
+
+  <!-- ══════════ BILAN ANNUEL ══════════ -->
+  <div *ngIf="activeTab === 'bilan'">
+
+    <div class="filter-bar premium-card mt-4">
+      <div class="filter-label">
+        <span class="label-title">Exercice</span>
+        <span class="label-desc">Sélectionnez l'année du bilan à consulter</span>
+      </div>
+      <select class="table-filter" [(ngModel)]="selectedYear" (ngModelChange)="onYearChange()">
+        <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+      </select>
+    </div>
+
+    <div class="loading-container premium-card mt-4" *ngIf="isLoadingBilan">
+      <div class="loading-spinner">
+        <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581" />
+        </svg>
+        <span>Génération du bilan {{ selectedYear }}...</span>
+      </div>
+    </div>
+
+    <ng-container *ngIf="bilan && !isLoadingBilan">
+      <div class="summary-cards mt-4">
+        <div class="summary-card">
+          <div class="title">Total autorisations</div>
+          <div class="amount">{{ bilan.totalAutorisations }}</div>
+        </div>
+        <div class="summary-card stat-success">
+          <div class="title">Actives</div>
+          <div class="amount">{{ bilan.autorisationsActives }}</div>
+        </div>
+        <div class="summary-card danger">
+          <div class="title">Expirées</div>
+          <div class="amount">{{ bilan.autorisationsExpirees }}</div>
+        </div>
+        <div class="summary-card alert">
+          <div class="title">En attente</div>
+          <div class="amount">{{ bilan.autorisationsEnAttente }}</div>
+        </div>
+      </div>
+
+      <div class="reports-dashboard-grid mt-4">
+        <div class="premium-card highlight-card">
+          <h3 class="card-title">Synthèse financière {{ bilan.annee }}</h3>
+          <div class="finance-grid">
+            <div class="finance-item">
+              <span class="finance-label">Recettes totales</span>
+              <span class="finance-value text-success">{{ bilan.totalRecettes | number: '1.2-2' }} TND</span>
+            </div>
+            <div class="finance-item">
+              <span class="finance-label">Nouvelles autorisations</span>
+              <span class="finance-value">{{ bilan.nouvellesAutorisations }}</span>
+            </div>
+            <div class="finance-item">
+              <span class="finance-label">Taux de croissance</span>
+              <span class="finance-value" [class.text-success]="bilan.tauxCroissance >= 0"
+                [class.text-danger]="bilan.tauxCroissance < 0">
+                {{ bilan.tauxCroissance | number: '1.1-1' }} %
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="premium-card">
+          <h3 class="card-title">Autorisations par type</h3>
+          <div class="bar-chart" *ngIf="(bilan.autorisationsParType | keyvalue).length > 0; else emptyBilanAuth">
+            <div class="bar-row" *ngFor="let item of bilan.autorisationsParType | keyvalue: sortByValueDesc">
+              <div class="bar-label">{{ getTypeLabel(item.key) }}</div>
+              <div class="bar-track">
+                <div class="bar-fill indigo" [style.width.%]="getBarWidth(item.value, bilan.autorisationsParType)"></div>
+              </div>
+              <div class="bar-value">{{ item.value }}</div>
+            </div>
+          </div>
+          <ng-template #emptyBilanAuth>
+            <p class="empty-chart">Aucune autorisation enregistrée pour cette année.</p>
+          </ng-template>
+        </div>
+
+        <div class="premium-card span-2">
+          <h3 class="card-title">Recettes par type de facturation</h3>
+          <div class="bar-chart" *ngIf="(bilan.recettesParType | keyvalue).length > 0; else emptyBilanRecettes">
+            <div class="bar-row" *ngFor="let item of bilan.recettesParType | keyvalue: sortByValueDesc">
+              <div class="bar-label">{{ getTypeLabel(item.key, 'facture') }}</div>
+              <div class="bar-track">
+                <div class="bar-fill cyan" [style.width.%]="getBarWidth(item.value, bilan.recettesParType)"></div>
+              </div>
+              <div class="bar-value">{{ item.value | number: '1.2-2' }} TND</div>
+            </div>
+          </div>
+          <ng-template #emptyBilanRecettes>
+            <p class="empty-chart">Aucune recette enregistrée pour cette année.</p>
+          </ng-template>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- ══════════ RAPPORT D'ACTIVITÉ ══════════ -->
+  <div *ngIf="activeTab === 'activite'">
+
+    <div class="filter-bar premium-card mt-4">
+      <div class="filter-label">
+        <span class="label-title">Période d'analyse</span>
+        <span class="label-desc">Définissez l'intervalle du rapport d'activité</span>
+      </div>
+      <div class="date-range-inputs">
+        <input type="date" class="table-filter" [(ngModel)]="dateDebut">
+        <span class="date-sep">→</span>
+        <input type="date" class="table-filter" [(ngModel)]="dateFin">
+        <button class="btn btn-primary btn-sm" (click)="loadActivite()" [disabled]="isLoadingActivite">
+          Générer
+        </button>
+      </div>
+    </div>
+
+    <div class="loading-container premium-card mt-4" *ngIf="isLoadingActivite">
+      <div class="loading-spinner">
+        <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581" />
+        </svg>
+        <span>Génération du rapport d'activité...</span>
+      </div>
+    </div>
+
+    <ng-container *ngIf="activite && !isLoadingActivite">
+      <div class="summary-cards mt-4">
+        <div class="summary-card">
+          <div class="title">Total demandes</div>
+          <div class="amount">{{ activite.totalDemandes }}</div>
+        </div>
+        <div class="summary-card stat-success">
+          <div class="title">Approuvées ({{ getApprovalRate() }}%)</div>
+          <div class="amount">{{ activite.demandesApprouvees }}</div>
+        </div>
+        <div class="summary-card danger">
+          <div class="title">Refusées</div>
+          <div class="amount">{{ activite.demandesRefusees }}</div>
+        </div>
+        <div class="summary-card alert">
+          <div class="title">En attente</div>
+          <div class="amount">{{ activite.demandesEnAttente }}</div>
+        </div>
+      </div>
+
+      <div class="reports-dashboard-grid mt-4">
+        <div class="premium-card highlight-card">
+          <h3 class="card-title">Période {{ activite.dateDebut }} → {{ activite.dateFin }}</h3>
+          <div class="finance-grid">
+            <div class="finance-item">
+              <span class="finance-label">Montant total facturé</span>
+              <span class="finance-value">{{ activite.montantTotal | number: '1.2-2' }} TND</span>
+            </div>
+            <div class="finance-item">
+              <span class="finance-label">Montant perçu</span>
+              <span class="finance-value text-success">{{ activite.montantPercu | number: '1.2-2' }} TND</span>
+            </div>
+            <div class="finance-item">
+              <span class="finance-label">Taux d'encaissement</span>
+              <span class="finance-value">{{ getCollectionRate() }} %</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="premium-card">
+          <h3 class="card-title">Recettes par mois</h3>
+          <div class="bar-chart" *ngIf="(activite.recettesParMois | keyvalue).length > 0; else emptyMois">
+            <div class="bar-row" *ngFor="let item of activite.recettesParMois | keyvalue">
+              <div class="bar-label">{{ item.key }}</div>
+              <div class="bar-track">
+                <div class="bar-fill green" [style.width.%]="getBarWidth(item.value, activite.recettesParMois)"></div>
+              </div>
+              <div class="bar-value">{{ item.value | number: '1.0-0' }} TND</div>
+            </div>
+          </div>
+          <ng-template #emptyMois>
+            <p class="empty-chart">Aucune donnée mensuelle disponible.</p>
+          </ng-template>
+        </div>
+
+        <div class="premium-card span-2">
+          <h3 class="card-title">Demandes par type d'autorisation</h3>
+          <div class="bar-chart" *ngIf="(activite.demandesParType | keyvalue).length > 0; else emptyDemandes">
+            <div class="bar-row" *ngFor="let item of activite.demandesParType | keyvalue: sortByValueDesc">
+              <div class="bar-label">{{ getTypeLabel(item.key) }}</div>
+              <div class="bar-track">
+                <div class="bar-fill purple" [style.width.%]="getBarWidth(item.value, activite.demandesParType)"></div>
+              </div>
+              <div class="bar-value">{{ item.value }}</div>
+            </div>
+          </div>
+          <ng-template #emptyDemandes>
+            <p class="empty-chart">Aucune demande enregistrée sur cette période.</p>
+          </ng-template>
+        </div>
+      </div>
+    </ng-container>
+
+    <div class="empty-state premium-card mt-4" *ngIf="!activite && !isLoadingActivite && !errorMsg">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" class="text-muted">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <p>Sélectionnez une période et cliquez sur <strong>Générer</strong> pour afficher le rapport d'activité.</p>
+    </div>
+  </div>
+</div>

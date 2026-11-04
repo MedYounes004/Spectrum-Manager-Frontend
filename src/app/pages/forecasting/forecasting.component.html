@@ -1,0 +1,223 @@
+<div class="page-container animate-fade-in">
+  <!-- En-tête de page -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Prévisions Stratégiques (IA)</h1>
+      <p class="page-subtitle">Modèles prédictifs des revenus et du budget pour l'année {{ revenue?.forecastYear ||
+        (summary?.revenue?.forecastYear || 2027) }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="refreshModel()" [disabled]="isLoading || isRefreshing">
+        <svg class="w-5 h-5 mr-2 icon" [class.spin]="isRefreshing" fill="none" viewBox="0 0 24 24"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span>{{ isRefreshing ? 'Entraînement en cours...' : 'Réentraîner le Modèle IA' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages d'état / Alertes -->
+  <div class="alert-banner alert-success animate-fade-in" *ngIf="successMsg">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    <span>{{ successMsg }}</span>
+  </div>
+
+  <div class="alert-banner alert-error animate-fade-in" *ngIf="errorMsg">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <div class="error-content">
+      <strong>Attention :</strong> {{ errorMsg }}
+    </div>
+    <button class="btn btn-secondary btn-sm" (click)="loadForecast()">Réessayer</button>
+  </div>
+
+  <!-- Bannière IA Info -->
+  <div class="ai-banner">
+    <div class="ai-content">
+      <div class="ai-title-row">
+        <h3>Modèle Prédictif Actif : {{ revenue?.method || 'Spectra-ML Engine' }}</h3>
+        <span class="ai-chip" *ngIf="revenue?.dataPointsUsed">
+          📊 {{ revenue?.dataPointsUsed }} points de données mensuelles analysés
+        </span>
+      </div>
+
+    </div>
+    <div class="ai-status">
+      <span class="pulse"></span>
+      <span>Dernière analyse : {{ getTrainedTimeAgo() || 'En temps réel' }}</span>
+    </div>
+  </div>
+
+  <!-- État de chargement initial -->
+  <div class="loading-container premium-card mt-4" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="36" height="36">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Calcul des prévisions et analyse algorithmique en cours...</span>
+    </div>
+  </div>
+
+  <!-- Grille Principale des Prévisions -->
+  <div *ngIf="!isLoading && revenue">
+
+    <!-- Cartes KPI Prédictifs -->
+    <div class="kpi-grid">
+      <div class="premium-card kpi-card">
+        <span class="kpi-tag">Projection Annuelle</span>
+        <h3 class="card-title">Prévision Revenus {{ revenue.forecastYear }}</h3>
+        <div class="mega-value">{{ formatNumber(revenue.predictedAnnualRevenue) }} <span class="unit">TND</span></div>
+        <div class="trend" [ngClass]="getGrowthClass()">
+          <span class="trend-icon">{{ getGrowthIcon() }}</span>
+          <span>{{ revenue.growthRate > 0 ? '+' : '' }}{{ revenue.growthRate }}% comparé à l'année précédente</span>
+        </div>
+        <div class="confidence-meter mt-4">
+          <div class="meter-header">
+            <span>Indice de confiance du modèle</span>
+            <span class="score" [ngClass]="getConfidenceClass()">{{ revenue.confidenceScore }}%</span>
+          </div>
+          <div class="meter-track">
+            <div class="meter-fill" [style.width.%]="revenue.confidenceScore"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="premium-card kpi-card">
+        <span class="kpi-tag">Fourchette de Prédiction (95%)</span>
+        <h3 class="card-title">Intervalle de Confiance</h3>
+        <div class="interval-container">
+          <div class="interval-box">
+            <span class="interval-lbl">Estimation Basse</span>
+            <strong class="interval-val text-muted">{{ formatNumber(revenue.predictedLower) }} TND</strong>
+          </div>
+          <div class="interval-sep">➜</div>
+          <div class="interval-box">
+            <span class="interval-lbl">Estimation Haute</span>
+            <strong class="interval-val text-primary">{{ formatNumber(revenue.predictedUpper) }} TND</strong>
+          </div>
+        </div>
+        <div class="metrics-subgrid mt-4">
+          <div class="metric-pill">
+            <span class="lbl">Score R²</span>
+            <strong>{{ revenue.r2Score }}</strong>
+          </div>
+          <div class="metric-pill">
+            <span class="lbl">Erreur MAPE</span>
+            <strong>{{ revenue.mape }}%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="premium-card kpi-card">
+        <span class="kpi-tag">Base Historique</span>
+        <h3 class="card-title">Recettes Année Courante</h3>
+        <div class="mega-value text-secondary">{{ formatNumber(revenue.currentYearRevenue) }} <span
+            class="unit">TND</span></div>
+        <p class="text-sm text-secondary mt-2">
+          Total encaissé à ce jour servant de point d'ancrage pour l'extrapolation algorithmique.
+        </p>
+        <div class="auth-counter mt-3" *ngIf="summary?.authorizationStats">
+          <span class="bullet"></span>
+          <span>{{ summary?.authorizationStats?.total || 0 }} autorisations actives dans le spectre</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Graphique d'Évolution & Donut -->
+    <div class="forecast-grid mt-4">
+
+      <!-- Graphique d'évolution temporelle (Historique + Prédictions) -->
+      <div class="premium-card chart-timeline-card">
+        <div class="chart-header">
+          <div>
+            <h3 class="card-title mb-0">Trajectoire Temporelle & Projections Mensuelles</h3>
+            <p class="text-xs text-secondary">Comparaison entre les données historiques réelles et les mois prévus par
+              l'IA</p>
+          </div>
+          <div class="chart-legend-row">
+            <span class="legend-badge badge-historical"><span class="dot"></span> Historique Réel</span>
+            <span class="legend-badge badge-predicted"><span class="dot"></span> Prévisions IA {{ revenue.forecastYear
+              }}</span>
+          </div>
+        </div>
+
+        <div class="timeline-bars-container">
+          <div class="bar-col" *ngFor="let item of chartData">
+            <div class="bar-value-hover">{{ formatNumber(item.value) }} TND</div>
+            <div class="bar-wrapper">
+              <div class="bar-fill" [class.bar-predicted]="item.type === 'predicted'"
+                [class.bar-historical]="item.type === 'historical'" [style.height]="getBarHeight(item.value)"></div>
+            </div>
+            <span class="bar-label">{{ item.label }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projection par Secteur (Donut) -->
+      <div class="premium-card chart-card">
+        <h3 class="card-title">Projection par Service Radioélectrique</h3>
+        <p class="text-xs text-secondary">Répartition estimée des recettes {{ revenue.forecastYear }} par catégorie
+          d'usage</p>
+
+        <div class="donut-chart-container">
+          <div class="donut" [style.background]="getDonutGradient()">
+            <div class="donut-hole">
+              <span class="donut-total">{{ services.length }}</span>
+              <span class="donut-sub">services</span>
+            </div>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item" *ngFor="let svc of services">
+              <span class="dot" [style.backgroundColor]="serviceColors[svc.service] || '#64748B'"></span>
+              <div class="legend-text">
+                <span class="legend-name">{{ svc.label }}</span>
+                <span class="legend-val"><strong>{{ svc.proportion }}%</strong> ({{ formatNumber(svc.predictedRevenue)
+                  }} TND)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tableau détaillé des prévisions mensuelles -->
+    <div class="table-container mt-4" *ngIf="monthlyPredictions.length > 0">
+      <div class="table-header-box">
+        <h3 class="card-title mb-0">Détail des Échéances Prévues par Mois ({{ revenue.forecastYear }})</h3>
+        <span class="text-xs text-secondary">Montants calculés avec bornes de sécurité statistiques</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Mois Prévu</th>
+            <th>Estimation Centrale (IA)</th>
+            <th>Borne Inférieure (95%)</th>
+            <th>Borne Supérieure (95%)</th>
+            <th>Indicateur</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of monthlyPredictions">
+            <td class="font-semibold">{{ m.monthLabel }}</td>
+            <td class="font-bold text-primary">{{ formatNumber(m.predicted) }} TND</td>
+            <td class="text-secondary">{{ formatNumber(m.lower) }} TND</td>
+            <td class="text-secondary">{{ formatNumber(m.upper) }} TND</td>
+            <td>
+              <span class="forecast-pill">Prévu</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>

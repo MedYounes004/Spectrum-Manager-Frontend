@@ -1,0 +1,293 @@
+<div class="page-container animate-fade-in">
+
+  <!-- Header Banner -->
+  <div class="client-profile-banner premium-card mb-4" *ngIf="clientInfo">
+    <div class="banner-top">
+      <div class="client-avatar-lg">{{ getInitials() }}</div>
+      <div class="client-title-info">
+        <div class="client-code-tag font-mono">{{ clientInfo.codeClient || 'ESPACE CLIENT' }}</div>
+        <h1 class="client-name-title">{{ clientInfo.nom }} {{ clientInfo.prenom ?? '' }}</h1>
+        <p class="client-sub-detail">
+          <span>{{ clientInfo.secteurActivite || 'Titulaire d\'Autorisations Fréquences' }}</span> • 
+          <span class="text-indigo">{{ clientInfo.email }}</span> • 
+          <span>{{ clientInfo.telephone }}</span>
+        </p>
+      </div>
+      <div class="banner-badge">
+        <span class="status-badge badge-active">Compte Vérifié</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Stats Cards -->
+  <div class="summary-cards mb-4">
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Mes Autorisations</div>
+      <div class="amount text-primary font-bold">{{ stats.totalAutorisations }}</div>
+    </div>
+    <div class="summary-card stat-success">
+      <div class="title font-semibold text-secondary">Autorisations Actives</div>
+      <div class="amount text-success font-bold">{{ stats.autorisationsActives }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Factures & Redevances</div>
+      <div class="amount text-indigo font-bold">{{ stats.totalFactures }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="title font-semibold text-secondary">Total Montant Réglé</div>
+      <div class="amount text-emerald font-bold">{{ stats.totalMontantPaye | number:'1.2-2' }} <span class="text-xs">TND</span></div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="client-tabs-bar mb-4">
+    <button class="tab-btn" [class.active]="activeTab === 'autorisations'" (click)="activeTab = 'autorisations'">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 014 10c0 .991.13 1.953.376 2.879.444 1.666 1.157 3.208 2.079 4.549A9 9 0 0012 21a9 9 0 005.545-3.572c.922-1.34 1.635-2.883 2.08-4.55A11.955 11.955 0 0120 10a11.955 11.955 0 01-5.382-2.016z" />
+      </svg>
+      Mes Autorisations Spectres ({{ autorisations.length }})
+    </button>
+    
+    <button class="tab-btn" [class.active]="activeTab === 'factures'" (click)="activeTab = 'factures'">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Mes Factures & Redevances ({{ factures.length }})
+    </button>
+
+    <button class="tab-btn" [class.active]="activeTab === 'profil'" (click)="activeTab = 'profil'">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+      Mon Profil & Informations
+    </button>
+  </div>
+
+  <!-- Loading state -->
+  <div class="loading-container premium-card" *ngIf="isLoading">
+    <div class="loading-spinner">
+      <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Chargement de votre Espace Client...</span>
+    </div>
+  </div>
+
+  <!-- TAB 1: AUTORISATIONS -->
+  <div *ngIf="!isLoading && activeTab === 'autorisations'">
+    
+    <!-- Filter bar -->
+    <div class="filter-bar premium-card mb-4">
+      <div class="search-wrapper">
+        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" placeholder="Rechercher par N° autorisation, fréquence, service..." class="table-search"
+          [(ngModel)]="searchAutorisation" (ngModelChange)="applyAutorisationsFilter()">
+      </div>
+
+      <div class="filters-select">
+        <select class="table-filter" [(ngModel)]="filterAutorisationStatus" (ngModelChange)="applyAutorisationsFilter()">
+          <option value="">Tous les statuts</option>
+          <option value="ACTIVE">Actives</option>
+          <option value="EN_ATTENTE">En attente</option>
+          <option value="EXPIREE">Expirées</option>
+          <option value="SUSPENDUE">Suspendues</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state premium-card" *ngIf="filteredAutorisations.length === 0">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" class="text-muted">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 014 10c0 .991.13 1.953.376 2.879.444 1.666 1.157 3.208 2.079 4.549A9 9 0 0012 21a9 9 0 005.545-3.572c.922-1.34 1.635-2.883 2.08-4.55A11.955 11.955 0 0120 10a11.955 11.955 0 01-5.382-2.016z" />
+      </svg>
+      <p>Aucune autorisation radio-fréquence trouvée pour votre compte.</p>
+    </div>
+
+    <!-- Autorisations Table -->
+    <div class="table-container premium-card p-0" *ngIf="filteredAutorisations.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th>N° / Référence</th>
+            <th>Type de Service</th>
+            <th>Fréquence / Bande Assignée</th>
+            <th>Date d'émission</th>
+            <th>Date d'expiration</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let aut of filteredAutorisations">
+            <td>
+              <div>
+                <span class="font-mono text-indigo font-semibold block">{{ aut.numeroAutorisation || aut.reference || ('AUT-' + aut.id) }}</span>
+                <span class="text-xs text-muted font-mono" *ngIf="aut.reference && aut.numeroAutorisation">{{ aut.reference }}</span>
+              </div>
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <img [src]="getLogoUrl(aut.typeService || aut.numeroAutorisation)" alt="Logo Service" style="width: 24px; height: 24px; object-fit: contain; flex-shrink: 0;" />
+                <div>
+                  <span class="font-semibold text-primary block">{{ aut.typeService || 'Service Fréquences' }}</span>
+                  <span class="text-xs text-muted" *ngIf="aut.description">{{ aut.description }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="freq-tag font-mono">
+                ⚡ {{ aut.frequenceAssignee || aut.bandeFrequence || 'Non spécifiée' }}
+              </div>
+            </td>
+            <td>
+              <span class="text-sm">{{ (aut.dateEmission || aut.dateDebut) ? (aut.dateEmission || aut.dateDebut | date:'dd/MM/yyyy') : '—' }}</span>
+            </td>
+            <td>
+              <span class="text-sm font-semibold">{{ (aut.dateExpiration || aut.dateFin) ? (aut.dateExpiration || aut.dateFin | date:'dd/MM/yyyy') : '—' }}</span>
+            </td>
+            <td>
+              <span class="status-badge" [ngClass]="statusAutorisationBadgeClass[aut.statut] || 'badge-active'">
+                {{ statusAutorisationLabels[aut.statut] || aut.statut }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- TAB 2: FACTURES -->
+  <div *ngIf="!isLoading && activeTab === 'factures'">
+    
+    <!-- Filter bar -->
+    <div class="filter-bar premium-card mb-4">
+      <div class="search-wrapper">
+        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" placeholder="Rechercher par N° facture, référence, période..." class="table-search"
+          [(ngModel)]="searchFacture" (ngModelChange)="applyFacturesFilter()">
+      </div>
+
+      <div class="filters-select">
+        <select class="table-filter" [(ngModel)]="filterFactureStatus" (ngModelChange)="applyFacturesFilter()">
+          <option value="">Tous les statuts</option>
+          <option value="PAYEE">Payées</option>
+          <option value="EN_ATTENTE">En attente de paiement</option>
+          <option value="RETARD">En retard</option>
+          <option value="ANNULEE">Annulées</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state premium-card" *ngIf="filteredFactures.length === 0">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" class="text-muted">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p>Aucune facture enregistrée pour votre compte.</p>
+    </div>
+
+    <!-- Factures Table -->
+    <div class="table-container premium-card p-0" *ngIf="filteredFactures.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th>N° Facture / Réf.</th>
+            <th>Type / Période</th>
+            <th>Montant (TND)</th>
+            <th>Date d'émission</th>
+            <th>Date d'échéance</th>
+            <th>Statut de règlement</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let fac of filteredFactures">
+            <td>
+              <div>
+                <span class="font-mono text-indigo font-semibold block">{{ fac.numeroFacture || fac.referenceFacture || ('FAC-' + fac.id) }}</span>
+                <span class="text-xs text-muted font-mono" *ngIf="fac.referenceFacture && fac.numeroFacture">{{ fac.referenceFacture }}</span>
+              </div>
+            </td>
+            <td>
+              <div>
+                <span class="font-semibold text-primary block">{{ fac.typeRedevance || 'Redevance Fréquences' }}</span>
+                <span class="text-xs text-indigo" *ngIf="fac.periodeRef">Période: {{ fac.periodeRef }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="font-mono font-bold text-emerald text-base">{{ fac.montant | number:'1.2-2' }} DT</span>
+            </td>
+            <td>
+              <span class="text-sm">{{ fac.dateEmission ? (fac.dateEmission | date:'dd/MM/yyyy') : '—' }}</span>
+            </td>
+            <td>
+              <span class="text-sm font-semibold" [class.text-danger]="fac.statut === 'RETARD'">{{ fac.dateEcheance ? (fac.dateEcheance | date:'dd/MM/yyyy') : '—' }}</span>
+            </td>
+            <td>
+              <span class="status-badge" [ngClass]="statusFactureBadgeClass[fac.statut] || 'badge-active'">
+                {{ statusFactureLabels[fac.statut] || fac.statut }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- TAB 3: PROFIL CLIENT -->
+  <div *ngIf="!isLoading && activeTab === 'profil' && clientInfo">
+    <div class="premium-card profile-details-grid">
+      <div class="section-heading mb-4">
+        <h2 class="text-lg font-bold text-primary">Informations Titulaire Client</h2>
+        <p class="text-xs text-muted">Ces coordonnées sont enregistrées dans le système national de gestion des fréquences SFM Spectre.</p>
+      </div>
+
+      <div class="info-group-grid">
+        <div class="info-item">
+          <label>Code Client</label>
+          <div class="value font-mono text-indigo">{{ clientInfo.codeClient }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Type Client</label>
+          <div class="value font-semibold">{{ clientInfo.type === 'ENTREPRISE' ? 'Entreprise / Personne Morale' : 'Particulier / Personne Physique' }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Nom / Raison Sociale</label>
+          <div class="value font-bold text-primary">{{ clientInfo.nom }} {{ clientInfo.prenom ?? '' }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Adresse e-mail officielle</label>
+          <div class="value font-semibold text-indigo">{{ clientInfo.email }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Numéro de Téléphone</label>
+          <div class="value">{{ clientInfo.telephone }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Matricule / Identifiant Fiscal</label>
+          <div class="value font-mono">{{ clientInfo.numeroFiscal || clientInfo.matricule || 'Non spécifié' }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Secteur d'activité</label>
+          <div class="value">{{ clientInfo.secteurActivite || 'Télécommunications' }}</div>
+        </div>
+
+        <div class="info-item">
+          <label>Adresse Postale & Siège</label>
+          <div class="value">{{ clientInfo.adresse || '—' }}, {{ clientInfo.codePostal || '' }} {{ clientInfo.ville || '' }}, {{ clientInfo.pays || 'Tunisie' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

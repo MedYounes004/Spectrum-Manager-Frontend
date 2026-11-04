@@ -1,0 +1,205 @@
+<div class="page-container animate-fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Gestion des Utilisateurs</h1>
+      <p class="page-subtitle">Ajoutez et gérez les comptes d'accès à la plateforme</p>
+    </div>
+    <button class="btn btn-primary" id="btn-add-user" (click)="openModal()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Nouvel Utilisateur
+    </button>
+  </div>
+
+  <!-- Error Banner -->
+  <div class="alert-banner alert-error" *ngIf="loadError">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    {{ loadError }}
+    <button class="retry-btn" (click)="loadUsers()">Réessayer</button>
+  </div>
+
+  <!-- Table Card -->
+  <div class="table-container premium-card p-0">
+
+    <!-- Filters -->
+    <div class="table-actions">
+      <div class="search-wrapper">
+        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" placeholder="Rechercher par nom, email..." class="table-search"
+          [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()">
+      </div>
+      <select class="table-filter" [(ngModel)]="selectedRole" (ngModelChange)="applyFilters()">
+        <option value="">Tous les rôles</option>
+        <option *ngFor="let r of roles" [value]="r">{{ roleLabels[r] }}</option>
+      </select>
+      <span class="user-count">{{ filteredUsers.length }} utilisateur(s)</span>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="isLoading">
+      <svg class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Chargement des utilisateurs...</span>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="!isLoading && !loadError && filteredUsers.length === 0">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="40" height="40">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+      <p>Aucun utilisateur trouvé.</p>
+    </div>
+
+    <!-- Table -->
+    <table *ngIf="!isLoading && filteredUsers.length > 0">
+      <thead>
+        <tr>
+          <th>Utilisateur</th>
+          <th>Rôle</th>
+          <th>Email</th>
+          <th>Téléphone</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of filteredUsers">
+          <td>
+            <div class="user-cell">
+              <div class="user-avatar">{{ user.firstName.charAt(0) }}{{ user.lastName.charAt(0) }}</div>
+              <div>
+                <div class="entity-name">{{ user.firstName }} {{ user.lastName }}</div>
+                <div class="entity-id">&#64;{{ user.username }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="role-badge" [ngClass]="roleBadgeClass[user.role]">
+              {{ roleLabels[user.role] }}
+            </span>
+          </td>
+          <td class="email-cell">{{ user.email }}</td>
+          <td>{{ user.phoneNumber || '—' }}</td>
+          <td>
+            <span class="status" [ngClass]="{
+              'status-active':   user.status === 'ACTIVE',
+              'status-inactive': user.status === 'INACTIVE',
+              'status-review':   user.status === 'SUSPENDED'
+            }">{{ statusLabels[user.status] }}</span>
+          </td>
+          <td>
+            <button class="btn-icon" [title]="user.status === 'ACTIVE' ? 'Désactiver' : 'Activer'"
+              (click)="toggleStatus(user)">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+              </svg>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════ Add User Modal ══════════ -->
+<div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <h2>Nouvel Utilisateur</h2>
+      <button class="modal-close" (click)="closeModal()" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Alerts inside modal -->
+    <div class="alert-banner alert-error" *ngIf="submitError">{{ submitError }}</div>
+    <div class="alert-banner alert-success" *ngIf="submitSuccess">{{ submitSuccess }}</div>
+
+    <form class="modal-form" (submit)="onSubmit(); $event.preventDefault()">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Prénom *</label>
+          <input type="text" [(ngModel)]="newUser.firstName" name="firstName" placeholder="Ex: Ahmed">
+        </div>
+        <div class="form-group">
+          <label>Nom *</label>
+          <input type="text" [(ngModel)]="newUser.lastName" name="lastName" placeholder="Ex: Benali">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom d'utilisateur *</label>
+          <input type="text" [(ngModel)]="newUser.username" name="username" placeholder="Ex: ahmed.benali">
+        </div>
+        <div class="form-group">
+          <label>Mot de passe *</label>
+          <input type="password" [(ngModel)]="newUser.password" name="password" placeholder="••••••••">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Email *</label>
+        <input type="email" [(ngModel)]="newUser.email" name="email" placeholder="ahmed.benali@sfm.tn">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rôle *</label>
+          <select [(ngModel)]="newUser.role" name="role">
+            <option *ngFor="let r of roles" [value]="r">{{ roleLabels[r] }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Statut *</label>
+          <select [(ngModel)]="newUser.status" name="status">
+            <option *ngFor="let s of statuses" [value]="s">{{ statusLabels[s] }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="text" [(ngModel)]="newUser.phoneNumber" name="phoneNumber" placeholder="+216 XX XXX XXX">
+        </div>
+        <div class="form-group">
+          <label>Société</label>
+          <input type="text" [(ngModel)]="newUser.company" name="company" placeholder="Ex: SFM Tunisie">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Adresse</label>
+        <input type="text" [(ngModel)]="newUser.address" name="address" placeholder="Ex: Tunis, Tunisie">
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" (click)="closeModal()" [disabled]="isSubmitting">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting" id="btn-create-user">
+          <svg *ngIf="isSubmitting" class="spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            width="16" height="16">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581" />
+          </svg>
+          <span>{{ isSubmitting ? 'Création...' : 'Créer l\'utilisateur' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
